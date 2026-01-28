@@ -1,0 +1,80 @@
+product:
+  name: test-product
+  description: "Test product"
+  version: "0.1.0"
+
+infrastructure:
+  inngest:
+    app_id: "test-app"
+    signing_key: "${INNGEST_SIGNING_KEY}"
+    event_key: "${INNGEST_EVENT_KEY}"
+  supabase:
+    project_ref: "test"
+    url: "${SUPABASE_URL}"
+    anon_key: "${SUPABASE_ANON_KEY}"
+    service_key: "${SUPABASE_SERVICE_KEY}"
+  anthropic:
+    api_key: "${ANTHROPIC_API_KEY}"
+    default_model: "sonnet"
+  deployment:
+    platform: "vercel"
+
+state_machine:
+  initial: "received"
+  states:
+    - name: received
+      transitions_to: [processed]
+    - name: processed
+      transitions_to: []
+      terminal: true
+
+events:
+  namespace: "test"
+  definitions:
+    - name: item.received
+      payload:
+        item_id:
+          type: string
+          required: true
+        org_id:
+          type: string
+          required: true
+    - name: item.processed
+      payload:
+        item_id:
+          type: string
+          required: true
+        org_id:
+          type: string
+          required: true
+
+agents:
+  - name: processor
+    description: "Processes incoming items"
+    triggers:
+      - event: item.received
+    emits:
+      - event: item.processed
+    contract:
+      state_in: "received"
+      state_out: "processed"
+      output_schema: "schemas/processor-output.ts"
+      context_in:
+        from_db:
+          - table: items
+            as: "item.md"
+        static:
+          - source: "templates/"
+            dest: "templates/"
+    config:
+      model: "sonnet"
+      allowed_tools:
+        - "Read"
+        - "Write"
+
+database:
+  tables:
+    - name: items
+      rls: true
+    - name: status
+      rls: true
