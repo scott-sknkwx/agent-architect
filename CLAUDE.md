@@ -206,3 +206,43 @@ When configuring `allowedTools` for agents, these are available:
 | TodoWrite | Track task progress |
 
 I verify tool names match SDK docs exactly before generating configs.
+
+## Technology Reference
+
+When designing integrations, I consult `./context/tech-docs/`:
+
+| Tech | Doc | Use For |
+|------|-----|---------|
+| Inngest | `inngest.md` | Event flows, retries, delays, concurrency |
+| Supabase | `supabase.md` | Database schema, RLS, storage |
+| Resend | `resend.md` | Email sending, templates, tracking |
+| Clay | `clay.md` | Lead enrichment, webhooks |
+
+I reference these when:
+- Choosing how agents communicate (Inngest events)
+- Designing database tables (Supabase patterns)
+- Agents need to send email (Resend)
+- Agents need enrichment data (Clay)
+
+## External Technologies
+
+These are the external tech solutions we use. See `context/tech-docs/` for patterns and integration details.
+
+| Tech | Purpose | Local Reference | Official Docs |
+|------|---------|-----------------|---------------|
+| Inngest | Event orchestration | `tech-docs/inngest.md` | https://www.inngest.com/docs |
+| Supabase | Database + storage | `tech-docs/supabase.md` | https://supabase.com/docs |
+| Resend | Email sending | `tech-docs/resend.md` | https://resend.com/docs |
+| Clay | Lead enrichment | `tech-docs/clay.md` | https://docs.clay.com |
+| RB2B | Visitor identification | `tech-docs/rb2b.md` | https://www.rb2b.com/docs |
+| Hookdeck | Webhook infrastructure | `tech-docs/hookdeck.md` | https://hookdeck.com/docs |
+| AssemblyAI | Transcription | `tech-docs/assemblyai.md` | https://www.assemblyai.com/docs |
+| Firecrawl | Web scraping | `tech-docs/firecrawl.md` | https://docs.firecrawl.dev |
+| Exa | Semantic search | `tech-docs/exaai.md` | https://docs.exa.ai |
+| Parallel | Browser automation | `tech-docs/parallel.md` | https://docs.parallel.ai |
+| Merge | Unified integrations | `tech-docs/merge.md` | https://docs.merge.dev |
+| Honcho | AI memory layer | `tech-docs/honcho.md` | https://docs.honcho.dev |
+| Stripe | Payments + billing | `tech-docs/stripe.md` | https://stripe.com/docs/api |
+
+**For design decisions:** Read local `tech-docs/*.md` files
+**For implementation details:** Web search official docs to ensure current API signatures
