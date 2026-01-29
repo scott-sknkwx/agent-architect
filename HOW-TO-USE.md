@@ -79,7 +79,7 @@ npx tsx ~/agent-factory/src/cli.ts init \
   --output ./{product-name} \
   --merge-content ~/agent-architect/workspace/{product-name} \
   --install \
-  --clean-staging
+  --archive-staging
 ```
 
 **Example:** If your product is called `kringle`:
@@ -89,7 +89,7 @@ npx tsx ~/agent-factory/src/cli.ts init \
   --output ./kringle \
   --merge-content ~/agent-architect/workspace/kringle \
   --install \
-  --clean-staging
+  --archive-staging
 ```
 
 **What each part means:**
@@ -98,7 +98,7 @@ npx tsx ~/agent-factory/src/cli.ts init \
 - `--output ./{product-name}` — Creates the project right here in ~/projects/{product-name}
 - `--merge-content ...` — Copies your agent instructions and configs
 - `--install` — Automatically runs `npm install` for you
-- `--clean-staging` — Cleans up temporary files when done
+- `--archive-staging` — Archives staging directories to `done/` when complete
 
 #### 2d. Wait for it to finish
 
@@ -203,7 +203,7 @@ Local development uses Docker and `.env.local`. When you're ready to deploy:
 | `--output <path>` | `-o` | Output directory (defaults to product name in cwd) |
 | `--merge-content <path>` | `-c` | Content directory to merge (repeatable) |
 | `--install` | `-i` | Run npm install after generation |
-| `--clean-staging` | | Remove merge-content directories after success |
+| `--archive-staging` | | Move merge-content directories to `done/` after success |
 | `--dry-run` | | Preview changes without executing |
 | `--verbose` | `-v` | Show detailed output during execution |
 
@@ -236,7 +236,7 @@ npx tsx ~/agent-factory/src/cli.ts init \
   -o ./{product-name} \
   -c ~/agent-architect/workspace/{product-name} \
   --install \
-  --clean-staging \
+  --archive-staging \
   --verbose
 ```
 
@@ -265,7 +265,8 @@ agent-architect/
 │   ├── patterns/          # Design patterns
 │   └── tech-docs/         # External service docs
 └── workspace/             # Staging area for generated products
-    └── {product-name}/    # Temporary, deleted by --clean-staging
+    ├── {product-name}/    # Temporary, archived by --archive-staging
+    └── done/              # Archived staging directories
 ```
 
 ### Generated Product
@@ -328,4 +329,4 @@ Your merge-content has agent files that don't match agents in the manifest. Eith
 
 ### Need manual control?
 
-Omit `--merge-content` and `--clean-staging` to generate only the scaffold, then copy files yourself.
+Omit `--merge-content` and `--archive-staging` to generate only the scaffold, then copy files yourself.
