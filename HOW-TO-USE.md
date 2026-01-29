@@ -11,14 +11,14 @@ Agent Architect helps you design agent-based products through an interview proce
 │                     │     │                     │     │                     │
 │ - Interview user    │     │ - Parse manifest    │     │ - Next.js app       │
 │ - Model domain      │     │ - Generate code     │     │ - Inngest functions │
-│ - Write manifest    │     │ - Scaffold project  │     │ - Agent configs     │
-│ - Write CLAUDE.md   │     │                     │     │ - Ready to deploy   │
+│ - Write manifest    │     │ - Merge content     │     │ - Agent configs     │
+│ - Write CLAUDE.md   │     │ - Install deps      │     │ - Ready to deploy   │
 └─────────────────────┘     └─────────────────────┘     └─────────────────────┘
 ```
 
 ---
 
-## Current Workflow
+## Workflow
 
 ### Step 1: Design with Agent Architect
 
@@ -51,129 +51,10 @@ workspace/kringle/
     └── email-guidance/
 ```
 
-### Step 2: Run Agent Factory (Current Method)
+### Step 2: Ship with Agent Factory
 
-Navigate to where you want the project to live, then run the CLI:
+Run a single command to generate, merge, install, and clean up:
 
-```bash
-# Go to your projects directory
-cd ~/projects
-
-# Run agent-factory, pointing to the manifest
-npx tsx ~/agent-architect/../agent-factory/src/cli.ts init \
-  --manifest ~/agent-architect/workspace/kringle/manifest.yaml
-```
-
-This creates `~/projects/kringle/` with generated code:
-```
-~/projects/kringle/
-├── package.json
-├── tsconfig.json
-├── .env.example
-├── agents/
-│   └── persona-matcher/
-│       ├── config.ts       # Generated
-│       ├── hydration.ts    # Generated
-│       └── context/
-│           └── CLAUDE.md   # Generated stub (TODO placeholders)
-├── inngest/
-│   ├── client.ts
-│   └── functions/
-├── lib/
-├── schemas/
-├── app/api/
-└── supabase/migrations/
-```
-
-### Step 3: Merge Custom Content
-
-The generated CLAUDE.md files are stubs. Replace them with your real content:
-
-```bash
-cd ~/projects/kringle
-
-# Copy your CLAUDE.md files
-cp ~/agent-architect/workspace/kringle/agents/persona-matcher.md \
-   agents/persona-matcher/context/CLAUDE.md
-cp ~/agent-architect/workspace/kringle/agents/email-drafter.md \
-   agents/email-drafter/context/CLAUDE.md
-# ... repeat for each agent
-
-# Copy config directories
-cp -r ~/agent-architect/workspace/kringle/config/* config/
-
-# Copy templates
-cp -r ~/agent-architect/workspace/kringle/templates/* templates/
-
-# Copy custom schemas (merge with generated)
-cp ~/agent-architect/workspace/kringle/schemas/* schemas/
-```
-
-### Step 4: Install Dependencies
-
-```bash
-cd ~/projects/kringle
-npm install
-```
-
-### Step 5: Configure Environment
-
-```bash
-cp .env.example .env.local
-# Edit .env.local with your API keys
-```
-
-### Step 6: Run
-
-```bash
-npm run dev          # Start Next.js
-npx inngest-cli dev  # Start Inngest dev server (separate terminal)
-```
-
-### Step 7: Clean Up Staging
-
-```bash
-rm -rf ~/agent-architect/workspace/kringle
-```
-
----
-
-## Optimal Workflow (Proposed)
-
-The current workflow has friction:
-- Multiple manual copy steps
-- Easy to forget to merge content
-- Dependencies not auto-installed
-- Output location is implicit (cwd)
-
-### Proposed CLI Enhancement
-
-```bash
-agent-factory init \
-  --manifest ~/agent-architect/workspace/kringle/manifest.yaml \
-  --output ~/projects/kringle \
-  --merge-content ~/agent-architect/workspace/kringle/agents \
-  --merge-content ~/agent-architect/workspace/kringle/config \
-  --merge-content ~/agent-architect/workspace/kringle/templates \
-  --install
-```
-
-**New flags:**
-| Flag | Purpose |
-|------|---------|
-| `--output <path>` | Explicit output directory (instead of cwd + product.name) |
-| `--merge-content <path>` | Directory to merge into generated project (repeatable) |
-| `--install` | Run `npm install` after generation |
-| `--clean-staging` | Remove source directories after successful generation |
-
-### Proposed Workflow
-
-**Step 1: Design** (same as current)
-```
-"Let's build a lead-gifting platform..."
-```
-
-**Step 2: Ship** (single command)
 ```bash
 agent-factory init \
   --manifest ~/agent-architect/workspace/kringle/manifest.yaml \
@@ -183,31 +64,77 @@ agent-factory init \
   --clean-staging
 ```
 
-**Step 3: Configure & Run**
+This command:
+1. Parses your manifest and generates the project structure
+2. Merges your CLAUDE.md files, configs, templates, and schemas
+3. Installs npm dependencies
+4. Removes the staging directory after success
+
+### Step 3: Configure & Run
+
 ```bash
 cd ~/projects/kringle
 cp .env.example .env.local
-# Edit .env.local
-npm run dev
+# Edit .env.local with your API keys
+npm run dev          # Start Next.js
+npx inngest-cli dev  # Start Inngest dev server (separate terminal)
 ```
 
-### Content Merge Logic
+---
 
-When `--merge-content` is specified, the CLI should:
+## CLI Reference
 
-1. **CLAUDE.md files**: `agents/*.md` → `agents/*/context/CLAUDE.md`
-   - Match by name: `persona-matcher.md` → `agents/persona-matcher/context/CLAUDE.md`
-   - Overwrite generated stubs
+### Available Flags
 
-2. **Config directories**: Deep merge into `config/`
-   - Preserve generated structure
-   - Add custom files
+| Flag | Short | Description |
+|------|-------|-------------|
+| `--manifest <path>` | `-m` | **Required.** Path to product.manifest.yaml |
+| `--output <path>` | `-o` | Output directory (defaults to product name in cwd) |
+| `--merge-content <path>` | `-c` | Content directory to merge (repeatable) |
+| `--install` | `-i` | Run npm install after generation |
+| `--clean-staging` | | Remove merge-content directories after success |
+| `--dry-run` | | Preview changes without executing |
+| `--verbose` | `-v` | Show detailed output during execution |
 
-3. **Templates**: Deep merge into `templates/`
+### Merge Content Behavior
 
-4. **Schemas**: Merge into `schemas/`
-   - Custom schemas override generated stubs
-   - Keep generated `events.ts` (derived from manifest)
+When `--merge-content` is specified, the CLI automatically routes content:
+
+| Source Pattern | Target | Strategy |
+|----------------|--------|----------|
+| `agents/*.md` (flat files) | `agents/*/context/CLAUDE.md` | Match by name, overwrite stubs |
+| `agents/*/context/CLAUDE.md` (nested) | Same path | Direct copy |
+| `config/**/*` | `config/` | Deep copy, skip existing |
+| `templates/**/*` | `templates/` | Deep copy, skip existing |
+| `schemas/*.ts` | `schemas/` | Copy, overwrite stubs |
+
+### Examples
+
+**Preview without creating files:**
+```bash
+agent-factory init -m manifest.yaml -o ./my-project --dry-run
+```
+
+**Full workflow with verbose output:**
+```bash
+agent-factory init \
+  -m ~/agent-architect/workspace/kringle/manifest.yaml \
+  -o ~/projects/kringle \
+  -c ~/agent-architect/workspace/kringle \
+  --install \
+  --clean-staging \
+  --verbose
+```
+
+**Multiple merge sources:**
+```bash
+agent-factory init \
+  -m manifest.yaml \
+  -o ./my-project \
+  -c ./workspace/agents \
+  -c ./workspace/config \
+  -c ./shared-templates
+```
 
 ---
 
@@ -224,33 +151,21 @@ agent-architect/
 │   ├── patterns/          # Design patterns
 │   └── tech-docs/         # External service docs
 └── workspace/             # Staging area for generated products
-    └── {product-name}/    # Temporary, delete after shipping
+    └── {product-name}/    # Temporary, deleted by --clean-staging
 ```
 
-### Agent Factory (sibling repo)
-```
-agent-factory/
-├── src/
-│   ├── cli.ts             # CLI entry point
-│   ├── commands/
-│   │   └── init.ts        # Init command
-│   ├── generators/        # Code generators
-│   └── manifest/          # Manifest parser
-```
-
-### Generated Product (standalone)
+### Generated Product
 ```
 {product-name}/
 ├── package.json
 ├── tsconfig.json
 ├── .env.example
-├── manifest.yaml          # Copy of source manifest
 ├── agents/
 │   └── {agent-name}/
 │       ├── config.ts      # ClaudeAgentOptions
 │       ├── hydration.ts   # Context loading
 │       └── context/
-│           └── CLAUDE.md  # Agent instructions
+│           └── CLAUDE.md  # Your agent instructions (merged)
 ├── inngest/
 │   ├── client.ts
 │   └── functions/         # One per agent
@@ -265,14 +180,12 @@ agent-factory/
 ├── schemas/
 │   ├── events.ts          # Zod schemas for all events
 │   └── {agent}-output.ts  # Output schemas per agent
-├── config/                # Domain-specific config
-├── templates/             # Email templates, etc.
-├── app/
-│   └── api/
-│       ├── inngest/       # Inngest webhook
-│       └── webhooks/      # External webhooks
-└── supabase/
-    └── migrations/
+├── config/                # Your config (merged)
+├── templates/             # Your templates (merged)
+├── app/api/
+│   ├── inngest/           # Inngest webhook
+│   └── webhooks/          # External webhooks
+└── supabase/migrations/
 ```
 
 ---
@@ -281,27 +194,23 @@ agent-factory/
 
 ### "Cannot find module" errors after generation
 
-Dependencies weren't installed. Run:
-```bash
-cd ~/projects/{product-name}
-npm install
-```
+Use `--install` flag or run `npm install` manually in the project directory.
 
 ### Generated CLAUDE.md has TODO placeholders
 
-You need to merge your custom content. See Step 3 in Current Workflow.
-
-### Project generated inside agent-architect
-
-You ran the CLI from the wrong directory. The CLI creates the project in your current working directory. Run from where you want the project to live:
-```bash
-cd ~/projects  # NOT ~/agent-architect/workspace
-agent-factory init --manifest /path/to/manifest.yaml
-```
+Use `--merge-content` to merge your custom content from the workspace.
 
 ### Manifest validation errors
 
 Run validation first:
 ```bash
-npx tsx ~/agent-factory/src/cli.ts validate --manifest ./manifest.yaml
+agent-factory validate --manifest ./manifest.yaml
 ```
+
+### Unmatched agent files warning
+
+Your merge-content has agent files that don't match agents in the manifest. Either add the missing agent to your manifest or remove the extra .md file.
+
+### Need manual control?
+
+Omit `--merge-content` and `--clean-staging` to generate only the scaffold, then copy files yourself.
