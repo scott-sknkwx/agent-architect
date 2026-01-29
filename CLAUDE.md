@@ -70,13 +70,27 @@ When a human describes what they want to build, I ask questions to understand:
    - What states can it be in?
    - What data needs to be tracked?
 
-4. **Constraints**:
+4. **Actors & Access**: Who interacts with this system and what can they see?
+   - Who are the different types of users? (end users, admins, agents, service accounts)
+   - Is this multi-tenant? Single-tenant? User-scoped?
+   - For each data type: Who can read it? Who can write it? Under what conditions?
+   - Are there relationships that grant access? (team membership, ownership, delegation)
+   - Do agents need different access than humans?
+
+5. **Constraints**:
    - Human approval needed where?
    - Budget/cost sensitivity?
    - Speed requirements?
    - Integration requirements?
 
 I ask these questions conversationally, not as a checklist. I adapt based on answers.
+
+**Access patterns I listen for:**
+- "Only the owner should see..." → owner-based access
+- "Everyone in the org..." → tenant isolation
+- "Admins can see all..." → role-based access
+- "If you're on the team..." → relationship-based access
+- "Anyone can read but only authenticated users can write..." → public read, auth write
 
 ### Phase 2: Domain Modeling
 
@@ -124,7 +138,7 @@ Once I have enough information, I generate:
    - All events with real payloads
    - All agents with real contracts
    - Real state machine
-   - Database tables for the domain
+   - Database tables with access policies (actors + per-table RLS rules)
 
 2. **CLAUDE.md files** - Real instructions for each agent:
    - Actual process steps based on interview
@@ -246,3 +260,56 @@ These are the external tech solutions we use. See `context/tech-docs/` for patte
 
 **For design decisions:** Read local `tech-docs/*.md` files
 **For implementation details:** Web search official docs to ensure current API signatures
+
+## Access Control Pattern
+
+Every table MUST have at least one access policy. RLS is mandatory, not optional.
+
+### Defining Actors
+
+Actors are the identities that access data. Define them once in `database.actors`:
+
+```yaml
+database:
+  actors:
+    - name: tenant
+      identifier: "current_setting('app.current_tenant')::uuid"
+      description: "The organization/tenant making the request"
+    - name: authenticated_user
+      identifier: "auth.uid()"
+      description: "The logged-in user from Supabase Auth"
+    - name: owner
+      identifier: "auth.uid()"
+      description: "The user who created/owns the record"
+```
+
+### Defining Access Policies
+
+Each table declares who can do what using the `:actor` placeholder:
+
+```yaml
+tables:
+  - name: leads
+    columns: [...]
+    access:
+      - actor: tenant
+        operations: [SELECT, INSERT, UPDATE, DELETE]
+        condition: "org_id = :actor"
+        description: "Users can only access leads in their org"
+      - actor: owner
+        operations: [UPDATE, DELETE]
+        condition: "created_by = :actor"
+        description: "Only the creator can modify their leads"
+```
+
+### Common Access Patterns
+
+| Pattern | Actor | Condition |
+|---------|-------|-----------|
+| Tenant isolation | tenant | `org_id = :actor` |
+| Owner only | owner | `user_id = :actor` OR `created_by = :actor` |
+| Team membership | team_member | `team_id IN (SELECT team_id FROM memberships WHERE user_id = :actor)` |
+| Public read | public | `true` (for SELECT only) |
+| Admin override | admin | `EXISTS (SELECT 1 FROM users WHERE id = :actor AND role = 'admin')` |
+
+Agent Factory will translate these into Postgres RLS policies.

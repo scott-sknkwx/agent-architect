@@ -35,50 +35,161 @@ Agent Architect will:
 3. **Deep Dive** - Define each agent's contract and behavior
 4. **Generation** - Write files to `workspace/{product-name}/`
 
-Output in `workspace/kringle/`:
+Output in `workspace/{product-name}/`:
 ```
-workspace/kringle/
+workspace/{product-name}/
 ├── manifest.yaml           # Product definition
 ├── agents/
-│   ├── persona-matcher.md  # CLAUDE.md content
-│   ├── email-drafter.md
+│   ├── {agent-name}.md     # CLAUDE.md content for each agent
 │   └── ...
-├── config/
-│   └── triage-rules/
-├── schemas/
-│   └── status-yaml-schema.ts
-└── templates/
-    └── email-guidance/
+├── config/                 # Domain-specific configuration
+├── schemas/                # Output schemas
+└── templates/              # Email templates, etc.
 ```
 
 ### Step 2: Ship with Agent Factory
 
-Run a single command to generate, merge, install, and clean up:
+#### 2a. Open a terminal and go to your projects folder
+
+This is where you want your new project to live:
 
 ```bash
-agent-factory init \
+cd ~/projects
+```
+
+You should now be in `~/projects`. Verify with `pwd` — it should print something like `/Users/yourname/projects`.
+
+#### 2b. Find your product name
+
+Look in the `workspace/` folder inside agent-architect. You'll see a folder with your product name:
+
+```bash
+ls ~/agent-architect/workspace/
+```
+
+This will show something like `kringle` or `my-product` — that's your `{product-name}`.
+
+#### 2c. Run the generator command
+
+Replace `{product-name}` with your actual product name from Step 2b:
+
+```bash
+npx tsx ~/agent-factory/src/cli.ts init \
+  --manifest ~/agent-architect/workspace/{product-name}/manifest.yaml \
+  --output ./{product-name} \
+  --merge-content ~/agent-architect/workspace/{product-name} \
+  --install \
+  --clean-staging
+```
+
+**Example:** If your product is called `kringle`:
+```bash
+npx tsx ~/agent-factory/src/cli.ts init \
   --manifest ~/agent-architect/workspace/kringle/manifest.yaml \
-  --output ~/projects/kringle \
+  --output ./kringle \
   --merge-content ~/agent-architect/workspace/kringle \
   --install \
   --clean-staging
 ```
 
-This command:
-1. Parses your manifest and generates the project structure
-2. Merges your CLAUDE.md files, configs, templates, and schemas
-3. Installs npm dependencies
-4. Removes the staging directory after success
+**What each part means:**
+- `npx tsx ~/agent-factory/src/cli.ts init` — Runs the agent-factory tool
+- `--manifest ...` — Points to your design blueprint
+- `--output ./{product-name}` — Creates the project right here in ~/projects/{product-name}
+- `--merge-content ...` — Copies your agent instructions and configs
+- `--install` — Automatically runs `npm install` for you
+- `--clean-staging` — Cleans up temporary files when done
 
-### Step 3: Configure & Run
+#### 2d. Wait for it to finish
+
+The command will:
+1. Generate all the project files
+2. Copy your custom agent instructions
+3. Install dependencies (this takes a minute or two)
+4. Clean up
+
+When it's done, you'll have a new folder at `~/projects/{product-name}` with a complete, runnable app.
+
+### Step 3: Configure & Run Locally
+
+#### 3a. Go into your new project
 
 ```bash
-cd ~/projects/kringle
-cp .env.example .env.local
-# Edit .env.local with your API keys
-npm run dev          # Start Next.js
-npx inngest-cli dev  # Start Inngest dev server (separate terminal)
+cd ~/projects/{product-name}
 ```
+
+#### 3b. Start Supabase (runs in Docker)
+
+**Important:** Do this BEFORE creating `.env.local` — Supabase will error if that file exists with bad syntax.
+
+```bash
+supabase start
+```
+
+This takes a minute the first time. When it finishes, it prints a bunch of info. Look for these sections:
+
+```
+╭──────────────────────────────────────────────────────╮
+│ 🌐 APIs                                              │
+├────────────────┬─────────────────────────────────────┤
+│ Project URL    │ http://127.0.0.1:54321              │  ← SUPABASE_URL
+...
+
+╭──────────────────────────────────────────────────────────────╮
+│ 🔑 Authentication Keys                                       │
+├─────────────┬────────────────────────────────────────────────┤
+│ Publishable │ sb_publishable_...                             │  ← SUPABASE_ANON_KEY
+│ Secret      │ sb_secret_...                                  │  ← SUPABASE_SERVICE_ROLE_KEY
+```
+
+Keep this terminal open or copy these values — you'll need them next.
+
+#### 3c. Set up your environment variables
+
+Now create your `.env.local` file:
+
+```bash
+cp .env.example .env.local
+```
+
+Open `.env.local` in a text editor and fill in:
+
+| Variable | Value from supabase start |
+|----------|---------------------------|
+| `SUPABASE_URL` | Project URL (e.g. `http://127.0.0.1:54321`) |
+| `SUPABASE_ANON_KEY` | Publishable key (`sb_publishable_...`) |
+| `SUPABASE_SERVICE_ROLE_KEY` | Secret key (`sb_secret_...`) |
+| `ANTHROPIC_API_KEY` | Your key from https://console.anthropic.com |
+
+Other keys depend on what integrations your product uses (Resend for email, etc.). The `.env.example` file lists everything.
+
+#### 3d. Start the app (two more terminals)
+
+**Terminal 2** — Start the web server:
+```bash
+npm run dev
+```
+
+**Terminal 3** — Start Inngest (the background job runner):
+```bash
+npx inngest-cli dev
+```
+
+#### 3e. You're running!
+
+| Service | URL |
+|---------|-----|
+| Your app | http://localhost:3000 |
+| Inngest dashboard | http://localhost:8288 |
+| Supabase Studio | http://localhost:54323 |
+
+### Step 4: (Later) Deploy to Production
+
+Local development uses Docker and `.env.local`. When you're ready to deploy:
+
+- Create a Supabase cloud project and use those credentials
+- Deploy to Vercel/Railway/etc. with production environment variables
+- Set up Inngest Cloud and point it to your production webhook URL
 
 ---
 
@@ -112,15 +223,18 @@ When `--merge-content` is specified, the CLI automatically routes content:
 
 **Preview without creating files:**
 ```bash
-agent-factory init -m manifest.yaml -o ./my-project --dry-run
+npx tsx ~/agent-factory/src/cli.ts init \
+  -m ~/agent-architect/workspace/{product-name}/manifest.yaml \
+  -o ./{product-name} \
+  --dry-run
 ```
 
 **Full workflow with verbose output:**
 ```bash
-agent-factory init \
-  -m ~/agent-architect/workspace/kringle/manifest.yaml \
-  -o ~/projects/kringle \
-  -c ~/agent-architect/workspace/kringle \
+npx tsx ~/agent-factory/src/cli.ts init \
+  -m ~/agent-architect/workspace/{product-name}/manifest.yaml \
+  -o ./{product-name} \
+  -c ~/agent-architect/workspace/{product-name} \
   --install \
   --clean-staging \
   --verbose
@@ -128,12 +242,12 @@ agent-factory init \
 
 **Multiple merge sources:**
 ```bash
-agent-factory init \
-  -m manifest.yaml \
-  -o ./my-project \
-  -c ./workspace/agents \
-  -c ./workspace/config \
-  -c ./shared-templates
+npx tsx ~/agent-factory/src/cli.ts init \
+  -m ~/agent-architect/workspace/{product-name}/manifest.yaml \
+  -o ./{product-name} \
+  -c ~/agent-architect/workspace/{product-name}/agents \
+  -c ~/agent-architect/workspace/{product-name}/config \
+  -c ~/shared-templates
 ```
 
 ---
@@ -204,7 +318,8 @@ Use `--merge-content` to merge your custom content from the workspace.
 
 Run validation first:
 ```bash
-agent-factory validate --manifest ./manifest.yaml
+npx tsx ~/agent-factory/src/cli.ts validate \
+  --manifest ~/agent-architect/workspace/{product-name}/manifest.yaml
 ```
 
 ### Unmatched agent files warning

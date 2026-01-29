@@ -159,7 +159,40 @@ const CronSchema = z.object({
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-// DATABASE
+// DATABASE - ACCESS CONTROL
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Actors represent the different identities that can access data.
+ * Each actor has a name and an identifier expression that resolves to their ID at runtime.
+ *
+ * Common patterns:
+ * - tenant: current_setting('app.current_tenant')::uuid
+ * - authenticated_user: auth.uid()
+ * - service_role: Always allowed (bypasses RLS)
+ */
+const ActorSchema = z.object({
+  name: z.string().describe("Human-readable actor name (e.g., 'tenant', 'owner', 'team_member')"),
+  identifier: z.string().describe("SQL expression that resolves to the actor's ID at runtime"),
+  description: z.string().optional().describe("Explains who this actor represents"),
+});
+
+/**
+ * Access policies define WHO can do WHAT on a table.
+ * These get translated into Postgres RLS policies.
+ *
+ * The condition field uses :actor as a placeholder for the actor's identifier.
+ * Example: "org_id = :actor" becomes "org_id = current_setting('app.current_tenant')::uuid"
+ */
+const AccessPolicySchema = z.object({
+  actor: z.string().describe("References an actor defined in database.actors"),
+  operations: z.array(z.enum(["SELECT", "INSERT", "UPDATE", "DELETE"])).describe("Which operations this policy allows"),
+  condition: z.string().describe("SQL condition using :actor placeholder. Example: 'org_id = :actor'"),
+  description: z.string().optional().describe("Explains the business rule this policy enforces"),
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DATABASE - TABLES
 // ═══════════════════════════════════════════════════════════════════════════
 
 const TableColumnSchema = z.object({
@@ -173,11 +206,12 @@ const TableColumnSchema = z.object({
 const TableSchema = z.object({
   name: z.string(),
   columns: z.array(TableColumnSchema).optional(),
-  rls: z.boolean().optional().default(true),
+  access: z.array(AccessPolicySchema).min(1).describe("At least one access policy required - RLS is mandatory"),
 });
 
 const DatabaseSchema = z.object({
   migrations_dir: z.string().optional().default("supabase/migrations/"),
+  actors: z.array(ActorSchema).min(1).describe("Define all actors that can access data"),
   tables: z.array(TableSchema),
 });
 
