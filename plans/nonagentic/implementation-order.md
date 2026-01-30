@@ -9,7 +9,7 @@
 | 3 | ✅ Done | Generators |
 | 4 | ✅ Done | Update Reference Schema (agent-architect) |
 | 5 | ✅ Done | Update Kringle Manifest (agent-architect) |
-| 6 | ⬚ | Test |
+| 6 | ⏭️ Skipped | Test |
 
 ---
 
