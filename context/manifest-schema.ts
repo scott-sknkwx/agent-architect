@@ -289,6 +289,93 @@ const ObservabilitySchema = z.object({
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
+// INTEGRATIONS
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Typed schemas for known integrations.
+ * Uses .passthrough() to allow unknown integrations without schema changes.
+ *
+ * Source of truth: agent-architect/context/tech-docs/
+ */
+
+// Transcription
+const AssemblyAIIntegrationSchema = z.object({
+  api_key: z.string().describe("AssemblyAI API key for transcription"),
+});
+
+// Lead enrichment
+const ClayIntegrationSchema = z.object({
+  api_key: z.string().describe("Clay API key"),
+  table_webhook_url: z.string().optional().describe("Webhook URL for Clay table"),
+  webhook_secret: z.string().optional().describe("Secret for verifying Clay webhook signatures"),
+});
+
+// Semantic search
+const ExaAIIntegrationSchema = z.object({
+  api_key: z.string().describe("Exa AI API key for semantic search"),
+});
+
+// Web scraping
+const FirecrawlIntegrationSchema = z.object({
+  api_key: z.string().describe("Firecrawl API key"),
+});
+
+// AI memory layer
+const HonchoIntegrationSchema = z.object({
+  api_key: z.string().describe("Honcho API key for AI memory"),
+});
+
+// Webhook routing (webhook_secret is for Hookdeck's destination signing)
+const HookdeckIntegrationSchema = z.object({
+  api_key: z.string().describe("Hookdeck API key"),
+  webhook_secret: z.string().optional().describe("Secret for verifying Hookdeck destination signatures"),
+});
+
+// Unified CRM/ATS/HRIS integrations
+const MergeIntegrationSchema = z.object({
+  api_key: z.string().describe("Merge API key for unified integrations"),
+  webhook_signing_key: z.string().optional().describe("Key for verifying Merge webhook signatures"),
+});
+
+// Browser automation
+const ParallelIntegrationSchema = z.object({
+  api_key: z.string().describe("Parallel API key for browser automation"),
+});
+
+// Visitor identification (inbound webhooks only, auth can also be URL params)
+const RB2BIntegrationSchema = z.object({
+  webhook_secret: z.string().optional().describe("Secret for custom validation of RB2B webhooks"),
+});
+
+// Email sending
+const ResendIntegrationSchema = z.object({
+  api_key: z.string().describe("Resend API key"),
+  webhook_secret: z.string().describe("Secret for verifying Resend webhook signatures"),
+  from_domain: z.string().optional().describe("Domain for sending emails, e.g., 'mail.kringle.io'"),
+});
+
+// Payments & billing
+const StripeIntegrationSchema = z.object({
+  secret_key: z.string().describe("Stripe secret key"),
+  webhook_secret: z.string().describe("Secret for verifying Stripe webhook signatures"),
+});
+
+const IntegrationsSchema = z.object({
+  assemblyai: AssemblyAIIntegrationSchema.optional(),
+  clay: ClayIntegrationSchema.optional(),
+  exaai: ExaAIIntegrationSchema.optional(),
+  firecrawl: FirecrawlIntegrationSchema.optional(),
+  honcho: HonchoIntegrationSchema.optional(),
+  hookdeck: HookdeckIntegrationSchema.optional(),
+  merge: MergeIntegrationSchema.optional(),
+  parallel: ParallelIntegrationSchema.optional(),
+  rb2b: RB2BIntegrationSchema.optional(),
+  resend: ResendIntegrationSchema.optional(),
+  stripe: StripeIntegrationSchema.optional(),
+}).passthrough().optional().describe("External service integrations");
+
+// ═══════════════════════════════════════════════════════════════════════════
 // FULL MANIFEST SCHEMA
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -319,6 +406,7 @@ export const ManifestSchema = z.object({
       platform: z.enum(["vercel", "railway", "docker"]),
       region: z.string().optional(),
     }),
+    integrations: IntegrationsSchema,
   }),
 
   tenancy: z.object({
@@ -367,3 +455,15 @@ export type RoutingTrigger = z.infer<typeof RoutingTriggerSchema>;
 export type Table = z.infer<typeof TableSchema>;
 export type Actor = z.infer<typeof ActorSchema>;
 export type AccessPolicy = z.infer<typeof AccessPolicySchema>;
+export type Integrations = z.infer<typeof IntegrationsSchema>;
+export type AssemblyAIIntegration = z.infer<typeof AssemblyAIIntegrationSchema>;
+export type ClayIntegration = z.infer<typeof ClayIntegrationSchema>;
+export type ExaAIIntegration = z.infer<typeof ExaAIIntegrationSchema>;
+export type FirecrawlIntegration = z.infer<typeof FirecrawlIntegrationSchema>;
+export type HonchoIntegration = z.infer<typeof HonchoIntegrationSchema>;
+export type HookdeckIntegration = z.infer<typeof HookdeckIntegrationSchema>;
+export type MergeIntegration = z.infer<typeof MergeIntegrationSchema>;
+export type ParallelIntegration = z.infer<typeof ParallelIntegrationSchema>;
+export type RB2BIntegration = z.infer<typeof RB2BIntegrationSchema>;
+export type ResendIntegration = z.infer<typeof ResendIntegrationSchema>;
+export type StripeIntegration = z.infer<typeof StripeIntegrationSchema>;

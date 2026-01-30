@@ -4,11 +4,11 @@
 
 | Phase | Status | Description |
 |-------|--------|-------------|
-| 1 | ⬚ | Schema Extension - Typed Integrations (agent-factory) |
-| 2 | ⬚ | Integration Usage Validation (agent-factory) |
-| 3 | ⬚ | Update Reference Schema (agent-architect) |
-| 4 | ⬚ | Update Kringle Manifest (agent-architect) |
-| 5 | ⬚ | Test |
+| 1 | ✅ | Schema Extension - Typed Integrations (agent-factory) |
+| 2 | ✅ | Integration Usage Validation (agent-factory) |
+| 3 | ✅ | Update Reference Schema (agent-architect) |
+| 4 | ✅ | Update Kringle Manifest (agent-architect) |
+| 5 | ⏭️ | Test (skipped - will test after related work) |
 
 ---
 
@@ -164,7 +164,7 @@ const IntegrationsSchema = z.object({
 
 ### Phase 1: agent-factory - Typed Integration Schemas
 **Location**: `/Users/scottstrang/agent-factory/src/manifest/schema.ts`
-**Status**: Not started
+**Status**: ✅ Complete
 
 Add typed integration schemas before the ManifestSchema (around line 290):
 
@@ -304,7 +304,7 @@ export type StripeIntegration = z.infer<typeof StripeIntegrationSchema>;
 
 ### Phase 2: agent-factory - Integration Usage Validation
 **Location**: `/Users/scottstrang/agent-factory/src/commands/init.ts`
-**Status**: Not started
+**Status**: ✅ Complete
 
 Add validation function that warns when functions reference undeclared integrations:
 
@@ -333,7 +333,7 @@ Call this early in the `init` command, after parsing the manifest.
 
 ### Phase 3: agent-architect - Update Reference Schema
 **Location**: `/Users/scottstrang/agent-architect/context/manifest-schema.ts`
-**Status**: Not started
+**Status**: ✅ Complete
 
 Sync with agent-factory's updated schema:
 - Add `IntegrationsSchema` and individual integration schemas
@@ -344,7 +344,7 @@ Sync with agent-factory's updated schema:
 
 ### Phase 4: agent-architect - Update Kringle Manifest
 **Location**: `/Users/scottstrang/agent-architect/workspace/kringle/manifest.yaml`
-**Status**: Not started
+**Status**: ✅ Complete
 
 Add integrations section:
 
@@ -403,14 +403,14 @@ Verify:
 ### agent-factory (DO FIRST)
 | File | Action | Phase | Status |
 |------|--------|-------|--------|
-| `src/manifest/schema.ts` | Add typed integration schemas | 1 | ⬚ |
-| `src/commands/init.ts` | Add integration usage validation | 2 | ⬚ |
+| `src/manifest/schema.ts` | Add typed integration schemas | 1 | ✅ |
+| `src/commands/init.ts` | Add integration usage validation | 2 | ✅ |
 
 ### agent-architect (DO SECOND)
 | File | Action | Phase | Status |
 |------|--------|-------|--------|
-| `context/manifest-schema.ts` | Sync with agent-factory | 3 | ⬚ |
-| `workspace/kringle/manifest.yaml` | Add integrations section | 4 | ⬚ |
+| `context/manifest-schema.ts` | Sync with agent-factory | 3 | ✅ |
+| `workspace/kringle/manifest.yaml` | Add integrations section | 4 | ✅ |
 
 ---
 
