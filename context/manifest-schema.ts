@@ -137,6 +137,14 @@ const AgentSchema = z.object({
 // WEBHOOK
 // ═══════════════════════════════════════════════════════════════════════════
 
+/**
+ * Webhook handler extension for validation and transform steps.
+ */
+const WebhookHandlerSchema = z.object({
+  validation: z.array(z.string()).optional(),
+  transform: z.array(z.string()).optional(),
+});
+
 const WebhookSchema = z.object({
   name: z.string(),
   path: z.string(),
@@ -145,6 +153,7 @@ const WebhookSchema = z.object({
   emits: z.string(),
   transform: z.string(),
   description: z.string().optional(),
+  handler: WebhookHandlerSchema.optional(),
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -156,6 +165,55 @@ const CronSchema = z.object({
   schedule: z.string(),
   function: z.string(),
   description: z.string().optional(),
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// NON-AGENTIC FUNCTIONS
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Function trigger variants for different execution patterns.
+ */
+const SimpleTriggerSchema = z.object({
+  event: z.string(),
+});
+
+const FanInTriggerSchema = z.object({
+  primary: z.string(),
+  wait_for: z.array(z.string()),
+  correlation_key: z.string(),
+  timeout: z.string().optional(),
+});
+
+const CronTriggerSchema = z.object({
+  cron: z.string(),
+  schedule: z.string(),
+});
+
+const RoutingTriggerSchema = z.object({
+  event: z.string(),
+  route_on: z.string(),
+  routes: z.record(z.string(), z.object({
+    emit: z.string(),
+    then: z.string().optional(),
+  })),
+  default_route: z.string().optional(),
+});
+
+/**
+ * Non-agentic function schema for event-driven scaffolds.
+ * Supports 4 patterns: simple, fan-in, cron, routing
+ */
+const FunctionSchema = z.object({
+  name: z.string(),
+  description: z.string(),
+  pattern: z.enum(["simple", "fan-in", "cron", "routing"]),
+  trigger: z.union([SimpleTriggerSchema, FanInTriggerSchema, CronTriggerSchema, RoutingTriggerSchema]),
+  emits: z.array(z.string()).optional(),
+  actions: z.array(z.string()).optional(),
+  integrations: z.array(z.string()).optional(),
+  context: z.string().optional(),
+  open_questions: z.array(z.string()).optional(),
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -283,6 +341,7 @@ export const ManifestSchema = z.object({
 
   crons: z.array(CronSchema).optional(),
   webhooks: z.array(WebhookSchema).optional(),
+  functions: z.array(FunctionSchema).optional(),
   observability: ObservabilitySchema.optional(),
 });
 
@@ -298,5 +357,13 @@ export type StateMachine = z.infer<typeof StateMachineSchema>;
 export type StateDefinition = z.infer<typeof StateDefinitionSchema>;
 export type AgentLimits = z.infer<typeof AgentLimitsSchema>;
 export type Webhook = z.infer<typeof WebhookSchema>;
+export type WebhookHandler = z.infer<typeof WebhookHandlerSchema>;
 export type Cron = z.infer<typeof CronSchema>;
+export type Function = z.infer<typeof FunctionSchema>;
+export type SimpleTrigger = z.infer<typeof SimpleTriggerSchema>;
+export type FanInTrigger = z.infer<typeof FanInTriggerSchema>;
+export type CronTrigger = z.infer<typeof CronTriggerSchema>;
+export type RoutingTrigger = z.infer<typeof RoutingTriggerSchema>;
 export type Table = z.infer<typeof TableSchema>;
+export type Actor = z.infer<typeof ActorSchema>;
+export type AccessPolicy = z.infer<typeof AccessPolicySchema>;

@@ -1,0 +1,282 @@
+# Example functions section for kringle manifest
+# These would go under a `functions:` key in manifest.yaml
+
+functions:
+  # ─────────────────────────────────────────────────────────────────────────
+  # SIMPLE PATTERN - Event → Actions → Emit
+  # ─────────────────────────────────────────────────────────────────────────
+  - name: request-clay-enrichment
+    description: "Send enrichment request to Clay"
+    pattern: simple
+    trigger:
+      event: enrichment.started
+    emits:
+      - clay/enrichment.requested
+    actions:
+      - "Fetch lead data if not in event payload"
+      - "Call Clay /enrichment endpoint with linkedin_url, email"
+      - "Store Clay request_id for webhook correlation"
+    integrations:
+      - clay
+    context: |
+      Clay returns async via webhook callback, not in HTTP response.
+      Lead must have email OR linkedin_url for Clay to work.
+      Callback URL should include lead_id for correlation.
+    open_questions:
+      - "What if linkedin_url is null? Skip Clay or try email-only?"
+      - "How to handle Clay rate limits (429)?"
+
+  - name: request-firecrawl-scrape
+    description: "Scrape company homepage via Firecrawl"
+    pattern: simple
+    trigger:
+      event: enrichment.started
+    emits:
+      - firecrawl/scrape.requested
+    actions:
+      - "Determine company URL from lead data"
+      - "Call Firecrawl /scrape endpoint"
+      - "Handle async callback via webhook"
+    integrations:
+      - firecrawl
+    context: |
+      Firecrawl needs company_domain or can extract from captured_url.
+      Returns async via webhook.
+      Both this and request-clay-enrichment trigger on same event (parallel).
+    open_questions:
+      - "Fallback if no company URL available?"
+
+  - name: send-email-on-approval
+    description: "Send email via Resend when approved"
+    pattern: simple
+    trigger:
+      event: approval.approved
+    emits:
+      - email.sent
+    actions:
+      - "Fetch draft content from email_events table"
+      - "Call Resend /emails endpoint"
+      - "Update email_events with resend_message_id"
+      - "Update lead state to 'sent'"
+    integrations:
+      - resend
+    context: |
+      Draft has subject, body_html, body_text.
+      Lead has email address.
+      Resend returns message_id in response.
+    open_questions:
+      - "Retry logic for Resend rate limits?"
+      - "What if lead.email is null at this point?"
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # FAN-IN PATTERN - Wait for multiple events, merge, emit
+  # ─────────────────────────────────────────────────────────────────────────
+  - name: consolidate-enrichment
+    description: "Wait for Clay + Firecrawl, then emit lead.enriched"
+    pattern: fan-in
+    trigger:
+      primary: clay/enrichment.completed
+      wait_for:
+        - lead.scraped
+      correlation_key: lead_id
+      timeout: "5m"
+    emits:
+      - lead.enriched
+    actions:
+      - "Merge data from Clay and Firecrawl"
+      - "Update leads table with enrichment data"
+      - "Update lead state to 'enriched'"
+    context: |
+      Clay provides: job_title, company_name, linkedin_data, seniority
+      Firecrawl provides: homepage_content, meta_description
+      Both services write to leads table before emitting completion events.
+    open_questions:
+      - "If Firecrawl times out, proceed with partial data or fail?"
+      - "What's minimum viable enrichment for persona-matcher?"
+      - "How to handle duplicate triggers (idempotency)?"
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # CRON PATTERN - Scheduled batch processing
+  # ─────────────────────────────────────────────────────────────────────────
+  - name: check-pending-approvals
+    description: "Send reminders for pending approvals"
+    pattern: cron
+    trigger:
+      cron: approval-reminder
+      schedule: "0 */4 * * *"
+    emits:
+      - approval.reminder
+      - approval.timeout
+    actions:
+      - "Query approvals needing reminder (pending, last_reminder > 4h ago)"
+      - "Send reminder email to approver"
+      - "Increment reminder_count, update last_reminder_at"
+      - "If reminder_count >= 3, emit approval.timeout instead"
+    context: |
+      Timing config in platform-campaign-template.yaml:
+        reminder_interval: 4h
+        max_reminders: 3
+      Approvals table has: status, reminder_count, last_reminder_at, approver_user_id
+    open_questions:
+      - "After 3 reminders, auto-approve or escalate to who?"
+      - "What if approver is OOO?"
+      - "Rate limit on notifications per user per hour?"
+
+  - name: process-snoozed-leads
+    description: "Wake up snoozed leads whose snooze has expired"
+    pattern: cron
+    trigger:
+      cron: snooze-wakeup
+      schedule: "0 9 * * *"
+    emits:
+      - lead.snooze_expired
+    actions:
+      - "Query leads where current_state = 'snoozed' AND snoozed_until < now()"
+      - "Update lead state based on snooze.resume_at_phase"
+      - "Emit appropriate phase.started event"
+    context: |
+      Snooze record has: snoozed_until, resume_at_phase, snooze_reason
+      Lead should resume where it left off in the campaign.
+    open_questions:
+      - "If resume_at_phase no longer exists (campaign changed), what then?"
+
+  - name: check-response-timeouts
+    description: "Check for leads that have timed out waiting for response"
+    pattern: cron
+    trigger:
+      cron: timeout-checker
+      schedule: "*/30 * * * *"
+    emits:
+      - timeout.response_wait
+    actions:
+      - "Query leads in 'sent' states (reach_out_sent, eex_sent, post_eex_sent, etc.)"
+      - "Filter where last_email_sent_at + phase_timeout < now()"
+      - "Exclude leads that have already replied (email_events.replied_at IS NOT NULL)"
+      - "Emit timeout event for each with wait_type and waited_hours"
+    context: |
+      Cron polling handles cancellation automatically - if lead replied,
+      the query condition won't match. No separate cancellation logic needed.
+
+      This replaces the "delayed emit" pattern which would require explicit
+      cancellation when email.replied arrives.
+
+      Phase timeout durations from platform-campaign-template.yaml:
+        reach_out: 72h
+        eex: 48h per step
+        post_eex: 72h
+    open_questions:
+      - "Different timeout durations per phase? (currently hardcoded or config lookup)"
+      - "Should timeout emit include which phase timed out?"
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # ROUTING PATTERN - Route based on event field value
+  # ─────────────────────────────────────────────────────────────────────────
+  - name: route-triage-result
+    description: "Route triage classification to appropriate handler"
+    pattern: routing
+    trigger:
+      event: triage.completed
+      route_on: classification
+      routes:
+        accept_gift:
+          emit: response.accept_gift
+        request_meeting:
+          emit: response.request_meeting
+        delayed:
+          emit: response.delayed
+        question:
+          emit: response.question
+        unclear:
+          emit: response.unclear
+        opt_out:
+          emit: response.opt_out
+          then: lead.terminated
+        not_interested:
+          emit: response.not_interested
+          then: lead.terminated
+        out_of_office:
+          emit: response.out_of_office
+        bounced:
+          emit: response.bounced
+          then: lead.terminated
+      default_route: response.unclear
+    actions:
+      - "Store classification in email_classifications table"
+      - "Log for analytics"
+    context: |
+      Triage agent provides: classification, confidence, reasoning
+      Low confidence might need different handling.
+      Current phase affects downstream behavior.
+    open_questions:
+      - "Low confidence threshold - route differently?"
+      - "Multi-classification support (e.g., question + delayed)?"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ENHANCED WEBHOOKS - Now with handler definitions
+# ─────────────────────────────────────────────────────────────────────────────
+
+webhooks:
+  - name: rb2b-inbound
+    path: "/api/webhooks/rb2b"
+    auth: hmac
+    secret: "${HOOKDECK_WEBHOOK_SECRET}"
+    emits: webhook.received
+    handler:
+      validation:
+        - "Verify HMAC signature from Hookdeck"
+        - "Check payload.person exists and has email or linkedin"
+      transform:
+        - "Extract person.email, person.first_name, person.last_name"
+        - "Extract company info from person.company"
+        - "Parse captured_url from payload.visit.page_url"
+        - "Lookup organization_id from rb2b_source_id or domain"
+    description: "Receives visitor identification from RB2B via Hookdeck"
+
+  - name: clay-callback
+    path: "/api/webhooks/clay"
+    auth: hmac
+    secret: "${HOOKDECK_WEBHOOK_SECRET}"
+    emits: clay/enrichment.completed
+    handler:
+      validation:
+        - "Verify signature"
+        - "Check lead_id in callback URL or payload"
+      transform:
+        - "Extract enrichment fields (job_title, seniority, etc.)"
+        - "Update leads table with enrichment data"
+    description: "Receives enrichment callback from Clay"
+
+  - name: resend-delivery-webhook
+    path: "/api/webhooks/resend/delivery"
+    auth: hmac
+    secret: "${RESEND_WEBHOOK_SECRET}"
+    emits: email.delivery_event
+    handler:
+      validation:
+        - "Verify Svix signature"
+        - "Extract resend_message_id"
+      transform:
+        - "Map Resend event type (delivered, opened, clicked, bounced, complained)"
+        - "Lookup email_event_id from resend_message_id"
+        - "Update email_events table (delivered_at, first_opened_at, etc.)"
+        - "Insert into email_delivery_events for audit trail"
+    description: "Receives delivery status events from Resend (opened, clicked, bounced, etc.)"
+
+  - name: resend-inbound-webhook
+    path: "/api/webhooks/resend/inbound"
+    auth: hmac
+    secret: "${RESEND_WEBHOOK_SECRET}"
+    emits: email.replied
+    handler:
+      validation:
+        - "Verify Svix signature"
+        - "Extract In-Reply-To header to find original message"
+      transform:
+        - "Lookup lead_id from In-Reply-To resend_message_id"
+        - "Extract reply content (text and/or html)"
+        - "Store reply in email_events or separate replies table"
+    description: "Receives inbound reply emails from Resend"
+    context: |
+      Requires Resend inbound email feature enabled.
+      In-Reply-To header links reply to original sent email.
+      This triggers the triage agent flow.
