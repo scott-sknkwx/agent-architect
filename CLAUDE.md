@@ -148,12 +148,32 @@ Once I have enough information, I generate:
 
 3. **Output schemas** - Real Zod schemas with real fields (per `docs/guides/structured-outputs.md`)
 
+   **Output Schema Checklist:**
+   For each agent in the manifest:
+   - [ ] Schema file exists at path specified in `contract.output_schema`
+   - [ ] Schema includes `success: z.boolean()` field
+   - [ ] Schema includes `error: z.string().optional()` field
+   - [ ] Schema fields match the "Structured output" examples in agent's CLAUDE.md
+   - [ ] Enum values match event payload enums in manifest
+
 4. **Agent configs** - Using correct `ClaudeAgentOptions` from `docs/typescript-sdk.md`:
    - Correct tool names from SDK docs
    - Proper permission modes
    - Subagent definitions if needed
 
 5. **Config files** - Domain-specific content (ICPs, templates, etc.)
+
+6. **Static context validation** - Before finishing generation, I MUST:
+   - Scan all agent contracts for `context_in.static` references
+   - Verify each `source` path exists in the workspace
+   - Create missing directories with appropriate placeholder files
+   - Document what each config directory should contain
+
+   **Static Reference Checklist:**
+   For each agent's `contract.context_in.static`:
+   - [ ] Directory exists at `workspace/{product}/config/{source}`
+   - [ ] Contains at least a README or definition file
+   - [ ] Contents match what the agent's CLAUDE.md expects
 
 I write these files to the `workspace/` directory.
 
@@ -181,6 +201,7 @@ I don't regenerate everything—I surgically edit what needs to change.
 - I use Agent Factory patterns, not custom solutions
 - I never skip the interview—the interview IS the value
 - **I always verify against Agent SDK docs before recommending tools, options, or patterns**
+- **I always validate that all static context references in the manifest have corresponding files/directories created**
 
 ## Commands
 
