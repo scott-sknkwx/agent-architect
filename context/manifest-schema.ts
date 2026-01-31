@@ -20,11 +20,12 @@ const StateMachineSchema = z.object({
 // ═══════════════════════════════════════════════════════════════════════════
 
 const EventFieldSchema = z.object({
-  type: z.enum(["string", "number", "boolean"]),
+  type: z.enum(["string", "number", "boolean", "object"]),
   required: z.boolean().optional(),
   enum: z.array(z.string()).optional(),
   min: z.number().optional(),
   max: z.number().optional(),
+  description: z.string().optional(),
 });
 
 const EventDefinitionSchema = z.object({
@@ -145,8 +146,23 @@ const WebhookHandlerSchema = z.object({
   transform: z.array(z.string()).optional(),
 });
 
-const WebhookSchema = z.object({
+/**
+ * Hookdeck configuration for inngest-first webhooks.
+ * Routes external webhooks directly to Inngest, bypassing API routes.
+ */
+const HookdeckConfigSchema = z.object({
+  source: z.string().describe("Hookdeck source name, e.g., 'RB2B'"),
+  destination_port: z.number().describe("Local Inngest dev server port, typically 8288"),
+  path: z.string().describe("Inngest event path, e.g., '/e/rb2b'"),
+  transformation: z.string().describe("Path to Hookdeck transformation file"),
+});
+
+/**
+ * Traditional webhook: Next.js API route handles request.
+ */
+const TraditionalWebhookSchema = z.object({
   name: z.string(),
+  routing: z.literal("traditional"),
   path: z.string(),
   auth: z.enum(["hmac", "api_key", "bearer", "none"]),
   secret: z.string().optional(),
@@ -155,6 +171,28 @@ const WebhookSchema = z.object({
   description: z.string().optional(),
   handler: WebhookHandlerSchema.optional(),
 });
+
+/**
+ * Inngest-first webhook: Hookdeck routes directly to Inngest.
+ * No API route needed - webhooks go straight to event processing.
+ */
+const InngestFirstWebhookSchema = z.object({
+  name: z.string(),
+  routing: z.literal("inngest-first"),
+  hookdeck: HookdeckConfigSchema,
+  emits: z.string(),
+  description: z.string().optional(),
+  notes: z.array(z.string()).optional(),
+});
+
+/**
+ * Webhook definition - discriminated on "routing" field.
+ * All webhooks must specify their routing type.
+ */
+const WebhookSchema = z.discriminatedUnion("routing", [
+  TraditionalWebhookSchema,
+  InngestFirstWebhookSchema,
+]);
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CRON
@@ -201,16 +239,44 @@ const RoutingTriggerSchema = z.object({
 });
 
 /**
+ * Step definition for inngest-first-webhook functions.
+ * Each step is a discrete unit of work with error handling.
+ */
+const FunctionStepSchema = z.object({
+  name: z.string().describe("Step identifier, e.g., 'validate', 'lookup-org'"),
+  action: z.string().describe("Human-readable description of what this step does"),
+  on_failure: z.string().optional().describe("Error handling strategy"),
+  notes: z.array(z.string()).optional().describe("Implementation notes"),
+});
+
+/**
+ * Function configuration for retry/timeout behavior.
+ */
+const FunctionConfigSchema = z.object({
+  retries: z.number().optional().default(3),
+  timeout: z.string().optional().default("30s"),
+});
+
+/**
  * Non-agentic function schema for event-driven scaffolds.
- * Supports 4 patterns: simple, fan-in, cron, routing
+ * Supports 5 patterns: simple, fan-in, cron, routing, inngest-first-webhook
  */
 const FunctionSchema = z.object({
   name: z.string(),
   description: z.string(),
-  pattern: z.enum(["simple", "fan-in", "cron", "routing"]),
+  pattern: z.enum(["simple", "fan-in", "cron", "routing", "inngest-first-webhook"]),
   trigger: z.union([SimpleTriggerSchema, FanInTriggerSchema, CronTriggerSchema, RoutingTriggerSchema]),
   emits: z.array(z.string()).optional(),
+
+  // For simple, fan-in, cron, routing patterns
   actions: z.array(z.string()).optional(),
+
+  // For inngest-first-webhook pattern
+  steps: z.array(FunctionStepSchema).optional(),
+  config: FunctionConfigSchema.optional(),
+  schema: z.string().optional().describe("Path to validation schema file"),
+
+  // Common fields
   integrations: z.array(z.string()).optional(),
   context: z.string().optional(),
   open_questions: z.array(z.string()).optional(),
@@ -445,9 +511,14 @@ export type StateMachine = z.infer<typeof StateMachineSchema>;
 export type StateDefinition = z.infer<typeof StateDefinitionSchema>;
 export type AgentLimits = z.infer<typeof AgentLimitsSchema>;
 export type Webhook = z.infer<typeof WebhookSchema>;
+export type TraditionalWebhook = z.infer<typeof TraditionalWebhookSchema>;
+export type InngestFirstWebhook = z.infer<typeof InngestFirstWebhookSchema>;
+export type HookdeckConfig = z.infer<typeof HookdeckConfigSchema>;
 export type WebhookHandler = z.infer<typeof WebhookHandlerSchema>;
 export type Cron = z.infer<typeof CronSchema>;
 export type Function = z.infer<typeof FunctionSchema>;
+export type FunctionStep = z.infer<typeof FunctionStepSchema>;
+export type FunctionConfig = z.infer<typeof FunctionConfigSchema>;
 export type SimpleTrigger = z.infer<typeof SimpleTriggerSchema>;
 export type FanInTrigger = z.infer<typeof FanInTriggerSchema>;
 export type CronTrigger = z.infer<typeof CronTriggerSchema>;
