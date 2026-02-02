@@ -13,8 +13,9 @@ Thumbs.db
 # Human scratch files
 .human/
 
-# Claude Code local config
-.claude/
+# Claude Code local config (not context or skills)
+.claude/settings.json
+.claude/settings.local.json
 
 # IDE
 .idea/
