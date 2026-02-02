@@ -23,6 +23,7 @@ feature-description.md → implementation-order.md → execute → complete
 
 | Name | Description | Status |
 |------|-------------|--------|
+| context-relocation | Move context/ into .claude/context/ so generated projects receive full copy without version drift | drafting |
 | manifest-coverage | Identify gaps between discovery process and manifest schema requirements; proposes THE LOOP framework | discovery |
 
 
