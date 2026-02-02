@@ -1,6 +1,6 @@
 # Agent SDK Troubleshooting
 
-Common issues and solutions. For detailed documentation, read `context/agent-sdk-docs/`.
+Common issues and solutions. For detailed documentation, read `.claude/context/agent-sdk-docs/`.
 
 ## Skills Not Working
 
@@ -117,4 +117,4 @@ Common issues and solutions. For detailed documentation, read `context/agent-sdk
 1. **Log all messages**: Print every message from the generator
 2. **Check init message**: Contains MCP status, available commands, session ID
 3. **Use PreToolUse hook**: Log all tool calls to see what's happening
-4. **Read the docs**: Most issues are covered in `context/agent-sdk-docs/docs/guides/`
+4. **Read the docs**: Most issues are covered in `.claude/context/agent-sdk-docs/docs/guides/`
