@@ -1,0 +1,54 @@
+# EEX Metadata
+# The Pipeline Recovery Playbook
+# 5-email educational sequence for Technical Decision Makers
+
+eex:
+  id: "eex-tech-decision-makers-pipeline"
+  title: "The Pipeline Recovery Playbook"
+  core_promise: "Learn how to turn your anonymous website traffic into qualified pipeline—without adding more tools or headcount."
+  villain: "The belief that more traffic or better content alone will fix your pipeline problem."
+  format: "5 emails over 10 days, ~15 minutes total read time"
+  proof_point: "Based on patterns from 40+ B2B companies that recovered 20-40% more pipeline from existing traffic."
+
+topics:
+  email_1:
+    topic: "The Invisible Pipeline Problem"
+    takeaway: "97% of your website visitors leave without ever becoming known leads—and most companies have no strategy to change that."
+    belief_shift: "Traffic volume isn't the problem. Identification is."
+
+  email_2:
+    topic: "Why Intent Data Isn't Enough"
+    takeaway: "Third-party intent data tells you who's researching your category—but your own website visitors are researching YOU."
+    belief_shift: "First-party intent (your site visitors) beats third-party intent."
+
+  email_3:
+    topic: "The Visitor-to-Lead Gap"
+    takeaway: "The gap between 'someone visited your pricing page' and 'sales has a conversation' is where most pipeline dies."
+    belief_shift: "Speed and personalization of follow-up matters more than volume."
+
+  email_4:
+    topic: "Personalization That Scales"
+    takeaway: "Spray-and-pray outreach is dying. But 1:1 personalization doesn't scale. The answer is context-aware automation."
+    belief_shift: "You can have both scale and genuine personalization."
+
+  email_5:
+    topic: "The Compound Effect"
+    takeaway: "When you identify, enrich, and engage visitors in a loop, pipeline compounds. Each month builds on the last."
+    belief_shift: "This isn't a campaign—it's a capability that keeps producing."
+
+for_personalization:
+  topic_hints:
+    - "Includes a breakdown of why most companies only convert 3% of traffic to leads"
+    - "Covers the math on first-party vs third-party intent signals"
+    - "Shows the 'visitor-to-lead gap' most teams don't even measure"
+  callback_hooks:
+    - "The section on 'why intent data isn't enough'"
+    - "The visitor-to-lead gap breakdown"
+    - "The compound pipeline effect we covered in email 5"
+
+wait_days:
+  after_email_1: 2
+  after_email_2: 2
+  after_email_3: 2
+  after_email_4: 2
+  after_email_5: 0  # End of sequence

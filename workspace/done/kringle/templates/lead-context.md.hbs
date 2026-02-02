@@ -1,0 +1,40 @@
+# Lead Context
+
+## Identity
+- **Lead ID**: {{id}}
+- **Name**: {{first_name}} {{last_name}}
+- **Email**: {{email}}
+- **LinkedIn**: {{linkedin_url}}
+
+## Professional Context
+- **Title**: {{title}}
+- **Company**: {{company_name}}
+- **Company Website**: {{company_url}}
+- **Industry**: {{enrichment_data.industry}}
+- **Company Size**: {{enrichment_data.company_size}} employees
+- **Funding Stage**: {{enrichment_data.funding_stage}}
+
+## Capture Context
+- **Captured URL**: {{captured_url}}
+- **Captured At**: {{created_at}}
+
+{{#if enrichment_data.linkedin_headline}}
+## LinkedIn Profile
+- **Headline**: {{enrichment_data.linkedin_headline}}
+- **Location**: {{enrichment_data.location}}
+{{/if}}
+
+{{#if enrichment_data.company_description}}
+## Company Context
+{{enrichment_data.company_description}}
+{{/if}}
+
+{{#if homepage_context}}
+## Homepage Context (from Firecrawl)
+{{homepage_context}}
+{{/if}}
+
+## Enrichment Status
+- **Status**: {{enrichment_status}}
+- **Clay Enriched**: {{#if enrichment_data.clay_completed}}Yes{{else}}No{{/if}}
+- **Firecrawl Scraped**: {{#if enrichment_data.firecrawl_completed}}Yes{{else}}No{{/if}}

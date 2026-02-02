@@ -1,0 +1,204 @@
+# Response Classification Rules
+# Used by the response-triager agent to handle edge cases
+
+version: "1.0"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# POSITIVE SIGNAL PATTERNS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+positive_signals:
+  accept_gift:
+    strong_indicators:
+      - "yes"
+      - "sure"
+      - "sounds good"
+      - "i'm in"
+      - "send it"
+      - "send it over"
+      - "sign me up"
+      - "interested"
+      - "love to"
+      - "would love"
+      - "let's do it"
+    context_requirements:
+      - must_be_in_phase: ["reach_out"]
+      - must_reference_gift_or_content: true
+
+  request_meeting:
+    strong_indicators:
+      - "let's talk"
+      - "can we meet"
+      - "schedule a call"
+      - "book a meeting"
+      - "let's set up"
+      - "free next week"
+      - "calendar"
+      - "hop on a call"
+      - "chat more"
+    context_requirements: []
+
+  delayed:
+    strong_indicators:
+      - "busy right now"
+      - "swamped"
+      - "crazy time"
+      - "circle back"
+      - "check in later"
+      - "not the right time"
+      - "after"
+      - "next month"
+      - "next quarter"
+      - "in a few weeks"
+    time_extraction:
+      patterns:
+        - "after (\\w+ \\d+)"
+        - "in (\\d+) (days?|weeks?|months?)"
+        - "next (\\w+)"
+        - "around (\\w+)"
+      default_if_not_found: "14 days"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# NEGATIVE SIGNAL PATTERNS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+negative_signals:
+  opt_out:
+    strong_indicators:
+      - "unsubscribe"
+      - "stop emailing"
+      - "remove me"
+      - "take me off"
+      - "do not contact"
+      - "don't email"
+      - "please stop"
+      - "no more emails"
+    action: terminate_immediately
+    suppress: true
+
+  not_interested:
+    strong_indicators:
+      - "not interested"
+      - "no thanks"
+      - "pass"
+      - "not for us"
+      - "not a fit"
+      - "don't need"
+      - "we're good"
+      - "all set"
+      - "no need"
+    action: terminate
+    suppress: false
+
+  spam_complaint_risk:
+    indicators:
+      - "how did you get my email"
+      - "where did you find me"
+      - "spam"
+      - "reported"
+      - "blocking"
+    action: escalate
+    reason: "Potential spam complaint risk - needs human review"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# NEUTRAL SIGNAL PATTERNS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+neutral_signals:
+  question:
+    indicators:
+      - "?"
+      - "how does"
+      - "what is"
+      - "can you explain"
+      - "tell me more"
+      - "curious about"
+      - "wondering"
+    action: draft_reply
+    extract_question: true
+
+  acknowledgment:
+    indicators:
+      - "thanks"
+      - "thank you"
+      - "got it"
+      - "noted"
+      - "okay"
+    action: continue
+    no_response_needed: true
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# EDGE CASES
+# ═══════════════════════════════════════════════════════════════════════════════
+
+edge_cases:
+  out_of_office:
+    indicators:
+      - "out of office"
+      - "ooo"
+      - "on vacation"
+      - "away from"
+      - "return on"
+      - "back on"
+    action: snooze
+    extract_return_date: true
+    default_snooze: "7 days"
+
+  forwarded:
+    indicators:
+      - "forwarding to"
+      - "passing this to"
+      - "cc'ing"
+      - "looping in"
+      - "better person to talk to"
+    action: wait
+    note: "Lead forwarded to colleague - wait for new response"
+
+  auto_reply:
+    indicators:
+      - "this is an automated"
+      - "auto-reply"
+      - "automatic response"
+      - "do not reply"
+    action: ignore
+    note: "Auto-reply detected - continue waiting"
+
+  wrong_person:
+    indicators:
+      - "wrong person"
+      - "i'm not"
+      - "i don't handle"
+      - "try reaching"
+      - "not my area"
+    action: escalate
+    reason: "Lead may have left role or wrong contact"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# CONFIDENCE THRESHOLDS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+confidence:
+  high_threshold: 0.85               # Very confident in classification
+  medium_threshold: 0.65             # Reasonably confident
+  low_threshold: 0.40                # Low confidence, consider escalating
+
+  escalate_if_below: 0.50            # Auto-escalate if confidence below this
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PHASE-SPECIFIC OVERRIDES
+# ═══════════════════════════════════════════════════════════════════════════════
+
+phase_overrides:
+  reach_out:
+    # In reach out, "yes" without context means accept_gift
+    ambiguous_positive_default: "accept_gift"
+
+  eex:
+    # In EEX, positive neutral responses mean continue
+    ambiguous_positive_default: "continue_eex"
+    # Questions might be about content - still continue
+    question_action: "continue_and_note"
+
+  post_eex:
+    # In post-EEX, we're pushing for meeting
+    ambiguous_positive_default: "schedule_meeting"

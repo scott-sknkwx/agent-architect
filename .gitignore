@@ -28,6 +28,5 @@ dist/
 build/
 *.log
 
-# Generated workspace outputs (keep structure, ignore generated content)
-workspace/*/
-!workspace/.gitkeep
+# Workspace is tracked (canonical examples and active development)
+# Use ${ENV_VAR} patterns in manifests, never commit real secrets

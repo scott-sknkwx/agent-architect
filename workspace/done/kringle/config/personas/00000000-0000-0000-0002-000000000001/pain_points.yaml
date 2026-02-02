@@ -1,0 +1,75 @@
+# Persona Pain Points
+# Technical Decision Makers
+# What this persona struggles with - used for personalization and relevance
+
+persona_id: "00000000-0000-0000-0002-000000000001"
+
+primary_pain_points:
+  - pain: "Pipeline visibility gap - website traffic doesn't convert to known leads"
+    manifestations:
+      - "High website traffic but low form fills"
+      - "Marketing can't attribute pipeline to content"
+      - "Sales complains about lead quality and quantity"
+      - "Unknown buyers researching before sales knows"
+    trigger_phrases:
+      - "pipeline problem"
+      - "lead generation"
+      - "website visitors"
+      - "demand gen"
+      - "anonymous traffic"
+
+  - pain: "Outbound is broken - cold outreach has diminishing returns"
+    manifestations:
+      - "SDR team struggling to hit quota"
+      - "Reply rates dropping"
+      - "Email deliverability issues"
+      - "Spam filters blocking outreach"
+    trigger_phrases:
+      - "outbound not working"
+      - "SDR productivity"
+      - "cold email"
+      - "reply rates"
+
+  - pain: "Marketing-Sales alignment - disagreement on what counts as a lead"
+    manifestations:
+      - "Marketing passes leads sales ignores"
+      - "No agreement on lead scoring"
+      - "Finger-pointing about pipeline"
+    trigger_phrases:
+      - "MQL quality"
+      - "lead scoring"
+      - "sales-marketing alignment"
+
+secondary_pain_points:
+  - pain: "Scaling personalization - can't personalize at volume"
+    relevance: "Becomes primary when team is trying to grow outbound"
+  - pain: "Tech stack sprawl - too many tools, not enough signal"
+    relevance: "Becomes primary post-Series B when rationalizing spend"
+
+common_misconceptions:
+  - belief: "More website traffic = more leads"
+    reality: "Most traffic is anonymous and never converts to known contacts"
+    our_angle: "Identify the visitors you're already attracting"
+
+  - belief: "Better content will fix lead gen"
+    reality: "Content works but you never know who consumed it"
+    our_angle: "Connect content consumption to real people"
+
+  - belief: "ABM requires expensive intent data"
+    reality: "Your own website visitors are the highest-intent signal"
+    our_angle: "First-party intent from your own traffic"
+
+current_state_indicators:
+  likely_dealing_with:
+    - "Pressure to grow pipeline efficiently"
+    - "Budget scrutiny on marketing spend"
+    - "Need to prove ROI on demand gen"
+  likely_tried:
+    - "Intent data providers (Bombora, 6sense)"
+    - "ABM platforms"
+    - "SDR outsourcing"
+    - "Content syndication"
+  likely_frustrated_by:
+    - "High cost per lead"
+    - "Low conversion from MQL to opportunity"
+    - "Inability to connect anonymous traffic to pipeline"

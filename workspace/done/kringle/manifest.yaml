@@ -1,0 +1,2758 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# KRINGLE MANIFEST
+# Lead-gifting platform for B2B companies
+# ═══════════════════════════════════════════════════════════════════════════════
+
+product:
+  name: kringle
+  description: "Lead-gifting platform that converts anonymous website visitors into sales opportunities through Educational Email Experiences (EEX)"
+  version: "2.0.0"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# INFRASTRUCTURE
+# ═══════════════════════════════════════════════════════════════════════════════
+
+infrastructure:
+  inngest:
+    app_id: "kringle"
+    signing_key: "${INNGEST_SIGNING_KEY}"
+    event_key: "${INNGEST_EVENT_KEY}"
+  supabase:
+    project_ref: "${SUPABASE_PROJECT_REF}"
+    url: "${SUPABASE_URL}"
+    anon_key: "${SUPABASE_ANON_KEY}"
+    service_key: "${SUPABASE_SERVICE_KEY}"
+  anthropic:
+    api_key: "${ANTHROPIC_API_KEY}"
+    default_model: "sonnet"
+  deployment:
+    platform: "vercel"
+    region: "iad1"
+  integrations:
+    resend:
+      api_key: "${RESEND_API_KEY}"
+      webhook_secret: "${RESEND_WEBHOOK_SECRET}"
+      from_domain: "${RESEND_FROM_DOMAIN}"
+    hookdeck:
+      api_key: "${HOOKDECK_API_KEY}"
+      webhook_secret: "${HOOKDECK_WEBHOOK_SECRET}"
+    clay:
+      api_key: "${CLAY_API_KEY}"
+      table_webhook_url: "${CLAY_TABLE_WEBHOOK_URL}"
+    firecrawl:
+      api_key: "${FIRECRAWL_API_KEY}"
+    rb2b:
+      webhook_secret: "${RB2B_WEBHOOK_SECRET}"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# MULTI-TENANCY
+# ═══════════════════════════════════════════════════════════════════════════════
+
+tenancy:
+  enabled: true
+  identifier: "organization_id"
+  isolation:
+    database: "rls"
+    storage: "prefix"
+    workspace: "prefix"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# STATE MACHINE (Lead Lifecycle)
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# Design: Single Human Touchpoint
+# - Human reviews lead + persona fit + all emails ONCE at pending_approval
+# - Everything after approved runs autonomously (event-driven)
+# - Only lead responses, bounces, or user actions interrupt the flow
+#
+# ═══════════════════════════════════════════════════════════════════════════════
+
+state_machine:
+  initial: "ingested"
+  states:
+    # ─────────────────────────────────────────────────────────────────────────
+    # PROCESSING PHASE (ends at human approval)
+    # ─────────────────────────────────────────────────────────────────────────
+    - name: ingested
+      transitions_to: [enriching]
+    - name: enriching
+      transitions_to: [enriched, enrichment_failed]
+    - name: enriched
+      transitions_to: [matching]
+    - name: enrichment_failed
+      transitions_to: [terminated]
+
+    # Persona Matching (agent)
+    - name: matching
+      transitions_to: [matched, no_match]
+    - name: matched
+      transitions_to: [campaign_setup]
+    - name: no_match
+      transitions_to: [archived]
+
+    # Campaign Setup (agent drafts wrapper emails, function personalizes EEX)
+    - name: campaign_setup
+      transitions_to: [pending_approval]
+
+    # Single Human Touchpoint - reviews everything
+    - name: pending_approval
+      transitions_to: [approved, rejected, revision_requested, persona_change_requested]
+    - name: revision_requested
+      transitions_to: [campaign_setup]
+    - name: persona_change_requested
+      transitions_to: [matching]
+    - name: rejected
+      transitions_to: [terminated]
+    - name: approved
+      transitions_to: [reach_out_active]
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # IN-FLIGHT PHASE (autonomous, event-driven)
+    # ─────────────────────────────────────────────────────────────────────────
+
+    # Reach Out (2 emails: initial + followup)
+    - name: reach_out_active
+      transitions_to: [reach_out_responded, reach_out_timeout]
+    - name: reach_out_responded
+      transitions_to: [eex_active, meeting_requested, snoozed, terminated]
+    - name: reach_out_timeout
+      transitions_to: [terminated]
+
+    # EEX Phase (5 templated emails, auto-approved)
+    - name: eex_active
+      transitions_to: [eex_responded, eex_completed, eex_interrupted]
+    - name: eex_responded
+      transitions_to: [eex_active, meeting_requested, terminated]
+    - name: eex_completed
+      transitions_to: [post_eex_active]
+    - name: eex_interrupted
+      transitions_to: [terminated, meeting_requested]
+
+    # Post-EEX (2 emails: initial + followup)
+    - name: post_eex_active
+      transitions_to: [post_eex_responded, post_eex_timeout]
+    - name: post_eex_responded
+      transitions_to: [meeting_requested, snoozed, terminated]
+    - name: post_eex_timeout
+      transitions_to: [terminated]
+
+    # Meeting Flow
+    - name: meeting_requested
+      transitions_to: [meeting_booked, meeting_failed]
+    - name: meeting_booked
+      transitions_to: [converted]
+    - name: meeting_failed
+      transitions_to: [terminated]
+
+    # Snooze (lead asked to wait)
+    - name: snoozed
+      transitions_to: [reach_out_active, post_eex_active]
+
+    # Escalation (unclear responses)
+    - name: escalated
+      transitions_to: [terminated, reach_out_active, eex_active, post_eex_active]
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # TERMINAL STATES
+    # ─────────────────────────────────────────────────────────────────────────
+    - name: converted
+      transitions_to: []
+      terminal: true
+    - name: terminated
+      transitions_to: []
+      terminal: true
+    - name: canceled
+      transitions_to: []
+      terminal: true
+    - name: archived
+      transitions_to: []
+      terminal: true
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# EVENTS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+events:
+  namespace: "kringle"
+  definitions:
+    # ─────────────────────────────────────────────────────────────────────────
+    # INGESTION EVENTS (Inngest-first pattern)
+    # Hookdeck transforms raw webhook → Inngest event format → /e/rb2b
+    # ─────────────────────────────────────────────────────────────────────────
+    - name: webhook/rb2b.received
+      description: "RB2B webhook received directly into Inngest via Hookdeck transformation"
+      payload:
+        raw:
+          type: object
+          required: true
+          description: "Original RB2B webhook payload"
+        headers:
+          type: object
+          required: true
+          description: "Original request headers for signature validation"
+        received_at:
+          type: string
+          required: true
+
+    - name: lead.ingested
+      description: "Lead validated and upserted to database"
+      payload:
+        lead_id:
+          type: string
+          required: true
+        organization_id:
+          type: string
+          required: true
+        fingerprint:
+          type: string
+          required: true
+        captured_url:
+          type: string
+          required: true
+        trace_id:
+          type: string
+          required: true
+
+    - name: webhook/clay.received
+      description: "Clay enrichment callback received directly into Inngest"
+      payload:
+        raw:
+          type: object
+          required: true
+        headers:
+          type: object
+          required: true
+        received_at:
+          type: string
+          required: true
+
+    - name: webhook/resend.received
+      description: "Resend delivery event received directly into Inngest"
+      payload:
+        raw:
+          type: object
+          required: true
+        headers:
+          type: object
+          required: true
+        received_at:
+          type: string
+          required: true
+
+    - name: webhook/resend-inbound.received
+      description: "Resend inbound email received directly into Inngest"
+      payload:
+        raw:
+          type: object
+          required: true
+        headers:
+          type: object
+          required: true
+        received_at:
+          type: string
+          required: true
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # ENRICHMENT EVENTS
+    # ─────────────────────────────────────────────────────────────────────────
+    - name: enrichment.started
+      description: "Lead enrichment process initiated"
+      payload:
+        lead_id:
+          type: string
+          required: true
+        organization_id:
+          type: string
+          required: true
+        trace_id:
+          type: string
+          required: true
+
+    - name: clay/enrichment.requested
+      description: "Clay enrichment request sent via Hookdeck"
+      payload:
+        lead_id:
+          type: string
+          required: true
+        organization_id:
+          type: string
+          required: true
+        linkedin_url:
+          type: string
+          required: true
+        trace_id:
+          type: string
+          required: true
+
+    - name: clay/enrichment.completed
+      description: "Clay enrichment data received"
+      payload:
+        lead_id:
+          type: string
+          required: true
+        organization_id:
+          type: string
+          required: true
+        enrichment_data:
+          type: string
+          required: true
+        trace_id:
+          type: string
+          required: true
+
+    - name: firecrawl/scrape.requested
+      description: "Firecrawl scrape request initiated"
+      payload:
+        lead_id:
+          type: string
+          required: true
+        organization_id:
+          type: string
+          required: true
+        company_url:
+          type: string
+          required: true
+        trace_id:
+          type: string
+          required: true
+
+    - name: lead.scraped
+      description: "Firecrawl scrape completed"
+      payload:
+        lead_id:
+          type: string
+          required: true
+        organization_id:
+          type: string
+          required: true
+        homepage_context_path:
+          type: string
+          required: true
+        trace_id:
+          type: string
+          required: true
+
+    - name: lead.enriched
+      description: "Lead enrichment complete (Clay + Firecrawl)"
+      payload:
+        lead_id:
+          type: string
+          required: true
+        organization_id:
+          type: string
+          required: true
+        enrichment_status:
+          type: string
+          required: true
+          enum: [complete, partial]
+        trace_id:
+          type: string
+          required: true
+
+    - name: enrichment.failed
+      description: "Lead enrichment failed"
+      payload:
+        lead_id:
+          type: string
+          required: true
+        organization_id:
+          type: string
+          required: true
+        reason:
+          type: string
+          required: true
+        trace_id:
+          type: string
+          required: true
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # PERSONA MATCHING EVENTS
+    # ─────────────────────────────────────────────────────────────────────────
+    - name: matching.started
+      description: "Persona matching agent spawned"
+      payload:
+        lead_id:
+          type: string
+          required: true
+        organization_id:
+          type: string
+          required: true
+        active_persona_count:
+          type: number
+          required: true
+        trace_id:
+          type: string
+          required: true
+
+    - name: lead.matched
+      description: "Lead matched to a persona"
+      payload:
+        lead_id:
+          type: string
+          required: true
+        organization_id:
+          type: string
+          required: true
+        persona_id:
+          type: string
+          required: true
+        confidence_score:
+          type: number
+          required: true
+          min: 0
+          max: 1
+        agent_reasoning:
+          type: string
+          required: true
+        trace_id:
+          type: string
+          required: true
+
+    - name: lead.no_match
+      description: "No suitable persona match found"
+      payload:
+        lead_id:
+          type: string
+          required: true
+        organization_id:
+          type: string
+          required: true
+        reason:
+          type: string
+          required: true
+          enum: [no_match, insufficient_data]
+        scores:
+          type: string
+          required: true
+        trace_id:
+          type: string
+          required: true
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # CAMPAIGN SETUP EVENTS
+    # ─────────────────────────────────────────────────────────────────────────
+    - name: campaign.setup_started
+      description: "Campaign setup initiated after persona match"
+      payload:
+        lead_id:
+          type: string
+          required: true
+        organization_id:
+          type: string
+          required: true
+        campaign_id:
+          type: string
+          required: true
+        persona_id:
+          type: string
+          required: true
+        trace_id:
+          type: string
+          required: true
+
+    - name: wrapper_emails.draft_requested
+      description: "Request to draft the 4 wrapper emails (agent-drafted)"
+      payload:
+        lead_id:
+          type: string
+          required: true
+        organization_id:
+          type: string
+          required: true
+        campaign_id:
+          type: string
+          required: true
+        email_types:
+          type: string
+          required: true
+        revision_feedback:
+          type: string
+          required: false
+        trace_id:
+          type: string
+          required: true
+
+    - name: wrapper_emails.drafted
+      description: "All 4 wrapper emails drafted by agent"
+      payload:
+        lead_id:
+          type: string
+          required: true
+        organization_id:
+          type: string
+          required: true
+        campaign_id:
+          type: string
+          required: true
+        draft_paths:
+          type: string
+          required: true
+        trace_id:
+          type: string
+          required: true
+
+    - name: eex.personalization_requested
+      description: "Request to personalize EEX templates (non-agentic)"
+      payload:
+        lead_id:
+          type: string
+          required: true
+        organization_id:
+          type: string
+          required: true
+        campaign_id:
+          type: string
+          required: true
+        persona_id:
+          type: string
+          required: true
+        trace_id:
+          type: string
+          required: true
+
+    - name: eex.personalized
+      description: "EEX templates personalized with lead data"
+      payload:
+        lead_id:
+          type: string
+          required: true
+        organization_id:
+          type: string
+          required: true
+        campaign_id:
+          type: string
+          required: true
+        item_count:
+          type: number
+          required: true
+        trace_id:
+          type: string
+          required: true
+
+    - name: campaign.ready_for_review
+      description: "All campaign items ready for human review"
+      payload:
+        lead_id:
+          type: string
+          required: true
+        organization_id:
+          type: string
+          required: true
+        campaign_id:
+          type: string
+          required: true
+        agent_drafted_count:
+          type: number
+          required: true
+        template_sourced_count:
+          type: number
+          required: true
+        trace_id:
+          type: string
+          required: true
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # APPROVAL EVENTS (Single Human Touchpoint)
+    # ─────────────────────────────────────────────────────────────────────────
+    - name: campaign.approved
+      description: "Human approved the entire campaign bundle"
+      payload:
+        lead_id:
+          type: string
+          required: true
+        organization_id:
+          type: string
+          required: true
+        campaign_id:
+          type: string
+          required: true
+        approved_by:
+          type: string
+          required: true
+        modifications:
+          type: string
+          required: false
+        trace_id:
+          type: string
+          required: true
+
+    - name: campaign.rejected
+      description: "Human rejected the lead"
+      payload:
+        lead_id:
+          type: string
+          required: true
+        organization_id:
+          type: string
+          required: true
+        campaign_id:
+          type: string
+          required: true
+        rejected_by:
+          type: string
+          required: true
+        feedback:
+          type: string
+          required: true
+        trace_id:
+          type: string
+          required: true
+
+    - name: campaign.revision_requested
+      description: "Human requested edits to wrapper emails"
+      payload:
+        lead_id:
+          type: string
+          required: true
+        organization_id:
+          type: string
+          required: true
+        campaign_id:
+          type: string
+          required: true
+        requested_by:
+          type: string
+          required: true
+        feedback:
+          type: string
+          required: true
+        trace_id:
+          type: string
+          required: true
+
+    - name: campaign.persona_change_requested
+      description: "Human requested different persona assignment"
+      payload:
+        lead_id:
+          type: string
+          required: true
+        organization_id:
+          type: string
+          required: true
+        campaign_id:
+          type: string
+          required: true
+        requested_by:
+          type: string
+          required: true
+        new_persona_id:
+          type: string
+          required: false
+        feedback:
+          type: string
+          required: true
+        trace_id:
+          type: string
+          required: true
+
+    - name: campaign.canceled
+      description: "User manually canceled the campaign during in-flight"
+      payload:
+        lead_id:
+          type: string
+          required: true
+        organization_id:
+          type: string
+          required: true
+        campaign_id:
+          type: string
+          required: true
+        canceled_by:
+          type: string
+          required: true
+        reason:
+          type: string
+          required: false
+        trace_id:
+          type: string
+          required: true
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # IN-FLIGHT PHASE EVENTS
+    # ─────────────────────────────────────────────────────────────────────────
+    - name: reach_out.started
+      description: "Reach out phase started (auto-sends first email)"
+      payload:
+        lead_id:
+          type: string
+          required: true
+        organization_id:
+          type: string
+          required: true
+        campaign_id:
+          type: string
+          required: true
+        trace_id:
+          type: string
+          required: true
+
+    - name: eex.started
+      description: "EEX sequence started"
+      payload:
+        lead_id:
+          type: string
+          required: true
+        organization_id:
+          type: string
+          required: true
+        campaign_id:
+          type: string
+          required: true
+        steps_total:
+          type: number
+          required: true
+        trace_id:
+          type: string
+          required: true
+
+    - name: eex.step_sent
+      description: "EEX step email sent"
+      payload:
+        lead_id:
+          type: string
+          required: true
+        organization_id:
+          type: string
+          required: true
+        campaign_id:
+          type: string
+          required: true
+        step_number:
+          type: number
+          required: true
+        steps_total:
+          type: number
+          required: true
+        trace_id:
+          type: string
+          required: true
+
+    - name: eex.completed
+      description: "All EEX steps delivered"
+      payload:
+        lead_id:
+          type: string
+          required: true
+        organization_id:
+          type: string
+          required: true
+        campaign_id:
+          type: string
+          required: true
+        steps_completed:
+          type: number
+          required: true
+        trace_id:
+          type: string
+          required: true
+
+    - name: post_eex.started
+      description: "Post-EEX phase started"
+      payload:
+        lead_id:
+          type: string
+          required: true
+        organization_id:
+          type: string
+          required: true
+        campaign_id:
+          type: string
+          required: true
+        trace_id:
+          type: string
+          required: true
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # EMAIL DELIVERY EVENTS
+    # ─────────────────────────────────────────────────────────────────────────
+    - name: resend/event.received
+      description: "Raw Resend webhook event received, to be routed"
+      payload:
+        event_type:
+          type: string
+          required: true
+          enum: [sent, delivered, opened, clicked, bounced, complained]
+        lead_id:
+          type: string
+          required: true
+        organization_id:
+          type: string
+          required: true
+        resend_message_id:
+          type: string
+          required: true
+        raw_payload:
+          type: string
+          required: true
+        trace_id:
+          type: string
+          required: true
+
+    - name: email.send_requested
+      description: "Email queued for sending via Resend"
+      payload:
+        lead_id:
+          type: string
+          required: true
+        organization_id:
+          type: string
+          required: true
+        campaign_id:
+          type: string
+          required: true
+        campaign_item_id:
+          type: string
+          required: true
+        to_email:
+          type: string
+          required: true
+        trace_id:
+          type: string
+          required: true
+
+    - name: email.sent
+      description: "Resend confirmed email sent"
+      payload:
+        lead_id:
+          type: string
+          required: true
+        organization_id:
+          type: string
+          required: true
+        campaign_item_id:
+          type: string
+          required: true
+        resend_message_id:
+          type: string
+          required: true
+        trace_id:
+          type: string
+          required: true
+
+    - name: email.delivered
+      description: "Email delivered to recipient server"
+      payload:
+        lead_id:
+          type: string
+          required: true
+        organization_id:
+          type: string
+          required: true
+        resend_message_id:
+          type: string
+          required: true
+        trace_id:
+          type: string
+          required: true
+
+    - name: email.opened
+      description: "Email opened by recipient"
+      payload:
+        lead_id:
+          type: string
+          required: true
+        organization_id:
+          type: string
+          required: true
+        resend_message_id:
+          type: string
+          required: true
+        open_count:
+          type: number
+          required: true
+        trace_id:
+          type: string
+          required: true
+
+    - name: email.clicked
+      description: "Link clicked in email"
+      payload:
+        lead_id:
+          type: string
+          required: true
+        organization_id:
+          type: string
+          required: true
+        resend_message_id:
+          type: string
+          required: true
+        clicked_url:
+          type: string
+          required: true
+        trace_id:
+          type: string
+          required: true
+
+    - name: email.bounced
+      description: "Email bounced"
+      payload:
+        lead_id:
+          type: string
+          required: true
+        organization_id:
+          type: string
+          required: true
+        resend_message_id:
+          type: string
+          required: true
+        bounce_type:
+          type: string
+          required: true
+          enum: [permanent, transient]
+        bounce_reason:
+          type: string
+          required: true
+        trace_id:
+          type: string
+          required: true
+
+    - name: email.complained
+      description: "Recipient marked email as spam"
+      payload:
+        lead_id:
+          type: string
+          required: true
+        organization_id:
+          type: string
+          required: true
+        resend_message_id:
+          type: string
+          required: true
+        trace_id:
+          type: string
+          required: true
+
+    - name: email.replied
+      description: "Recipient replied to email"
+      payload:
+        lead_id:
+          type: string
+          required: true
+        organization_id:
+          type: string
+          required: true
+        campaign_item_id:
+          type: string
+          required: true
+        in_reply_to_message_id:
+          type: string
+          required: true
+        reply_content:
+          type: string
+          required: true
+        trace_id:
+          type: string
+          required: true
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # RESPONSE TRIAGE EVENTS
+    # ─────────────────────────────────────────────────────────────────────────
+    - name: triage.started
+      description: "Response triage agent spawned"
+      payload:
+        lead_id:
+          type: string
+          required: true
+        organization_id:
+          type: string
+          required: true
+        reply_content:
+          type: string
+          required: true
+        current_phase:
+          type: string
+          required: true
+          enum: [reach_out, eex, post_eex]
+        trace_id:
+          type: string
+          required: true
+
+    - name: triage.completed
+      description: "Response classified"
+      payload:
+        lead_id:
+          type: string
+          required: true
+        organization_id:
+          type: string
+          required: true
+        classification:
+          type: string
+          required: true
+          enum: [accept_gift, request_meeting, delayed, opt_out, not_interested, question, continue, unclear]
+        sentiment:
+          type: string
+          required: true
+          enum: [positive, negative, neutral]
+        agent_reasoning:
+          type: string
+          required: true
+        trace_id:
+          type: string
+          required: true
+
+    - name: response.accept_gift
+      description: "Lead accepted gift offer"
+      payload:
+        lead_id:
+          type: string
+          required: true
+        organization_id:
+          type: string
+          required: true
+        trace_id:
+          type: string
+          required: true
+
+    - name: response.request_meeting
+      description: "Lead requested meeting"
+      payload:
+        lead_id:
+          type: string
+          required: true
+        organization_id:
+          type: string
+          required: true
+        trace_id:
+          type: string
+          required: true
+
+    - name: response.delayed
+      description: "Lead wants to wait"
+      payload:
+        lead_id:
+          type: string
+          required: true
+        organization_id:
+          type: string
+          required: true
+        snooze_until:
+          type: string
+          required: true
+        snooze_reason:
+          type: string
+          required: true
+        trace_id:
+          type: string
+          required: true
+
+    - name: response.opt_out
+      description: "Lead opted out"
+      payload:
+        lead_id:
+          type: string
+          required: true
+        organization_id:
+          type: string
+          required: true
+        trace_id:
+          type: string
+          required: true
+
+    - name: response.not_interested
+      description: "Lead not interested"
+      payload:
+        lead_id:
+          type: string
+          required: true
+        organization_id:
+          type: string
+          required: true
+        trace_id:
+          type: string
+          required: true
+
+    - name: response.question
+      description: "Lead asked a question"
+      payload:
+        lead_id:
+          type: string
+          required: true
+        organization_id:
+          type: string
+          required: true
+        question_summary:
+          type: string
+          required: true
+        trace_id:
+          type: string
+          required: true
+
+    - name: response.unclear
+      description: "Response could not be classified"
+      payload:
+        lead_id:
+          type: string
+          required: true
+        organization_id:
+          type: string
+          required: true
+        trace_id:
+          type: string
+          required: true
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # OUTCOME EVENTS
+    # ─────────────────────────────────────────────────────────────────────────
+    - name: meeting.requested
+      description: "Meeting requested by lead"
+      payload:
+        lead_id:
+          type: string
+          required: true
+        organization_id:
+          type: string
+          required: true
+        request_source:
+          type: string
+          required: true
+          enum: [reach_out, eex, post_eex]
+        trace_id:
+          type: string
+          required: true
+
+    - name: meeting.booked
+      description: "Meeting confirmed"
+      payload:
+        lead_id:
+          type: string
+          required: true
+        organization_id:
+          type: string
+          required: true
+        meeting_datetime:
+          type: string
+          required: true
+        calendar_event_id:
+          type: string
+          required: true
+        trace_id:
+          type: string
+          required: true
+
+    - name: lead.snoozed
+      description: "Lead snoozed for later"
+      payload:
+        lead_id:
+          type: string
+          required: true
+        organization_id:
+          type: string
+          required: true
+        snoozed_until:
+          type: string
+          required: true
+        resume_at_phase:
+          type: string
+          required: true
+          enum: [reach_out, post_eex]
+        trace_id:
+          type: string
+          required: true
+
+    - name: lead.escalated
+      description: "Lead escalated for human intervention"
+      payload:
+        lead_id:
+          type: string
+          required: true
+        organization_id:
+          type: string
+          required: true
+        escalation_reason:
+          type: string
+          required: true
+          enum: [unclear_response, repeated_failures]
+        escalated_to:
+          type: string
+          required: true
+        trace_id:
+          type: string
+          required: true
+
+    - name: escalation.resolved
+      description: "Human resolved escalation"
+      payload:
+        lead_id:
+          type: string
+          required: true
+        organization_id:
+          type: string
+          required: true
+        resolved_by:
+          type: string
+          required: true
+        resolution_action:
+          type: string
+          required: true
+        resolution_notes:
+          type: string
+          required: false
+        trace_id:
+          type: string
+          required: true
+
+    - name: lead.converted
+      description: "Lead converted to opportunity"
+      payload:
+        lead_id:
+          type: string
+          required: true
+        organization_id:
+          type: string
+          required: true
+        meeting_id:
+          type: string
+          required: true
+        conversion_path:
+          type: string
+          required: true
+        trace_id:
+          type: string
+          required: true
+
+    - name: lead.terminated
+      description: "Lead journey ended (negative)"
+      payload:
+        lead_id:
+          type: string
+          required: true
+        organization_id:
+          type: string
+          required: true
+        reason:
+          type: string
+          required: true
+          enum: [opt_out, not_interested, bounced, complained, timeout, rejected, enrichment_failed, escalated_unresolved]
+        terminated_at_phase:
+          type: string
+          required: true
+        trace_id:
+          type: string
+          required: true
+
+    - name: lead.canceled
+      description: "Lead canceled by user"
+      payload:
+        lead_id:
+          type: string
+          required: true
+        organization_id:
+          type: string
+          required: true
+        canceled_by:
+          type: string
+          required: true
+        canceled_at_phase:
+          type: string
+          required: true
+        trace_id:
+          type: string
+          required: true
+
+    - name: lead.archived
+      description: "Lead archived (neutral)"
+      payload:
+        lead_id:
+          type: string
+          required: true
+        organization_id:
+          type: string
+          required: true
+        reason:
+          type: string
+          required: true
+          enum: [no_match, insufficient_data]
+        trace_id:
+          type: string
+          required: true
+
+    - name: lead.journey_completed
+      description: "Lead journey ended - trigger analytics"
+      payload:
+        lead_id:
+          type: string
+          required: true
+        organization_id:
+          type: string
+          required: true
+        outcome:
+          type: string
+          required: true
+          enum: [converted, terminated, canceled, archived]
+        reason:
+          type: string
+          required: true
+        journey_duration_hours:
+          type: number
+          required: true
+        trace_id:
+          type: string
+          required: true
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # TIMEOUT EVENTS
+    # ─────────────────────────────────────────────────────────────────────────
+    - name: timeout.response_wait
+      description: "Response wait period expired"
+      payload:
+        lead_id:
+          type: string
+          required: true
+        organization_id:
+          type: string
+          required: true
+        phase:
+          type: string
+          required: true
+          enum: [reach_out, eex, post_eex]
+        waited_hours:
+          type: number
+          required: true
+        trace_id:
+          type: string
+          required: true
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# AGENTS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+agents:
+  # ─────────────────────────────────────────────────────────────────────────────
+  # PERSONA MATCHER AGENT
+  # Executor: 🤖 Agent
+  # ─────────────────────────────────────────────────────────────────────────────
+  - name: persona-matcher
+    description: "Scores enriched leads against buyer personas and selects best match"
+    triggers:
+      - event: matching.started
+    emits:
+      - event: lead.matched
+        when: "output.matched == true"
+      - event: lead.no_match
+        when: "output.matched == false"
+    contract:
+      state_in: "enriched"
+      state_out: "matched"
+      context_in:
+        from_db:
+          - table: leads
+            as: "lead.md"
+            template: "templates/lead-context.md.hbs"
+            must_have: ["id", "email", "enrichment_data"]
+          - table: personas
+            as: "personas/"
+            template: "templates/persona-summary.md.hbs"
+            must_have: ["id", "name", "filter_criteria"]
+        static:
+          - source: "config/personas/"
+            dest: "personas/"
+      context_out:
+        artifacts:
+          - file: "status.yaml"
+            required: true
+            persist_to: supabase_storage
+          - file: "match_scores.json"
+            required: true
+            persist_to: supabase_storage
+      output_schema: "schemas/persona-matcher-output.ts"
+    config:
+      model: "sonnet"
+      allowed_tools:
+        - "Read"
+        - "Write"
+        - "Glob"
+        - "Task"
+      permission_mode: "bypassPermissions"
+      subagents:
+        - name: persona-scorer
+          description: "Scores a single lead against a single persona"
+          model: "sonnet"
+          tools:
+            - "Read"
+    limits:
+      max_tokens: 80000
+      max_tool_calls: 100
+      timeout_seconds: 300
+      max_retries: 2
+    workspace:
+      base: "leads/{org_id}/{lead_id}/"
+      cleanup: "on_success"
+      snapshot_on_failure: true
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # EMAIL DRAFTER AGENT
+  # Executor: 🤖 Agent
+  # NOTE: Only drafts WRAPPER emails (4 total), NOT EEX emails
+  # ─────────────────────────────────────────────────────────────────────────────
+  - name: email-drafter
+    description: "Drafts the 4 wrapper emails: reach_out_initial, reach_out_followup, post_eex_initial, post_eex_followup"
+    triggers:
+      - event: wrapper_emails.draft_requested
+    emits:
+      - event: wrapper_emails.drafted
+    contract:
+      state_in: "campaign_setup"
+      state_out: "campaign_setup"
+      context_in:
+        from_db:
+          - table: leads
+            as: "lead.md"
+            template: "templates/lead-context.md.hbs"
+            must_have: ["id", "email", "first_name", "enrichment_data"]
+          - table: campaigns
+            as: "campaign.md"
+            template: "templates/campaign-context.md.hbs"
+            must_have: ["id", "persona_id"]
+        static:
+          - source: "templates/email-guidance/"
+            dest: "guidance/"
+          - source: "config/personas/{persona_id}/"
+            dest: "persona/"
+      context_out:
+        artifacts:
+          - file: "drafts/reach_out_initial.yaml"
+            required: true
+            persist_to: supabase_storage
+          - file: "drafts/reach_out_followup.yaml"
+            required: true
+            persist_to: supabase_storage
+          - file: "drafts/post_eex_initial.yaml"
+            required: true
+            persist_to: supabase_storage
+          - file: "drafts/post_eex_followup.yaml"
+            required: true
+            persist_to: supabase_storage
+          - file: "status.yaml"
+            required: true
+            persist_to: supabase_storage
+      output_schema: "schemas/email-drafter-output.ts"
+    config:
+      model: "sonnet"
+      allowed_tools:
+        - "Read"
+        - "Write"
+        - "Glob"
+      permission_mode: "bypassPermissions"
+    limits:
+      max_tokens: 50000
+      max_tool_calls: 30
+      timeout_seconds: 180
+      max_retries: 2
+    workspace:
+      base: "leads/{org_id}/{lead_id}/"
+      cleanup: "on_success"
+      snapshot_on_failure: true
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # REPLY DRAFTER AGENT
+  # Executor: 🤖 Agent
+  # ─────────────────────────────────────────────────────────────────────────────
+  - name: reply-drafter
+    description: "Drafts replies to lead questions during the campaign"
+    triggers:
+      - event: response.question
+    emits:
+      - event: email.send_requested
+    contract:
+      state_in:
+        - "reach_out_active"
+        - "eex_active"
+        - "post_eex_active"
+      state_out: "same"
+      context_in:
+        from_db:
+          - table: leads
+            as: "lead.md"
+            template: "templates/lead-context.md.hbs"
+            must_have: ["id", "email", "first_name"]
+          - table: campaigns
+            as: "campaign.md"
+            template: "templates/campaign-context.md.hbs"
+            must_have: ["id", "persona_id"]
+          - table: campaign_items
+            as: "email_history.md"
+            template: "templates/email-history.md.hbs"
+            must_have: ["campaign_id"]
+        static:
+          - source: "config/personas/{persona_id}/"
+            dest: "persona/"
+      context_out:
+        artifacts:
+          - file: "drafts/reply.yaml"
+            required: true
+            persist_to: supabase_storage
+      output_schema: "schemas/reply-drafter-output.ts"
+    config:
+      model: "sonnet"
+      allowed_tools:
+        - "Read"
+        - "Write"
+      permission_mode: "bypassPermissions"
+    limits:
+      max_tokens: 30000
+      max_tool_calls: 15
+      timeout_seconds: 120
+      max_retries: 2
+    workspace:
+      base: "leads/{org_id}/{lead_id}/"
+      cleanup: "on_success"
+      snapshot_on_failure: true
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # RESPONSE TRIAGER AGENT
+  # Executor: 🤖 Agent
+  # ─────────────────────────────────────────────────────────────────────────────
+  - name: response-triager
+    description: "Classifies email responses and recommends next action"
+    triggers:
+      - event: email.replied
+    emits:
+      - event: triage.completed
+      - event: response.accept_gift
+        when: "output.classification == 'accept_gift'"
+      - event: response.request_meeting
+        when: "output.classification == 'request_meeting'"
+      - event: response.delayed
+        when: "output.classification == 'delayed'"
+      - event: response.opt_out
+        when: "output.classification == 'opt_out'"
+      - event: response.not_interested
+        when: "output.classification == 'not_interested'"
+      - event: response.question
+        when: "output.classification == 'question'"
+      - event: response.unclear
+        when: "output.classification == 'unclear'"
+    contract:
+      state_in:
+        - "reach_out_active"
+        - "eex_active"
+        - "post_eex_active"
+      state_out: "responded"
+      context_in:
+        from_db:
+          - table: leads
+            as: "lead.md"
+            template: "templates/lead-context.md.hbs"
+            must_have: ["id", "email", "first_name"]
+          - table: campaigns
+            as: "campaign.md"
+            template: "templates/campaign-context.md.hbs"
+            must_have: ["id", "current_phase"]
+          - table: campaign_items
+            as: "email_history.md"
+            template: "templates/email-history.md.hbs"
+            must_have: ["campaign_id"]
+        static:
+          - source: "config/triage-rules/"
+            dest: "rules/"
+      context_out:
+        artifacts:
+          - file: "triage_result.json"
+            required: true
+            persist_to: supabase_storage
+          - file: "status.yaml"
+            required: true
+            persist_to: supabase_storage
+      output_schema: "schemas/response-triager-output.ts"
+    config:
+      model: "sonnet"
+      allowed_tools:
+        - "Read"
+        - "Write"
+        - "Glob"
+      permission_mode: "bypassPermissions"
+    limits:
+      max_tokens: 40000
+      max_tool_calls: 20
+      timeout_seconds: 120
+      max_retries: 2
+    workspace:
+      base: "leads/{org_id}/{lead_id}/"
+      cleanup: "on_success"
+      snapshot_on_failure: true
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # ESCALATION HANDLER AGENT
+  # Executor: 🤖 Agent
+  # ─────────────────────────────────────────────────────────────────────────────
+  - name: escalation-handler
+    description: "Interprets human guidance from escalation resolution"
+    triggers:
+      - event: escalation.resolved
+    emits:
+      - event: response.question
+        when: "output.action == 'reply_to_question'"
+      - event: lead.terminated
+        when: "output.action == 'terminate'"
+      - event: lead.snoozed
+        when: "output.action == 'snooze'"
+      - event: response.request_meeting
+        when: "output.action == 'schedule_meeting'"
+    contract:
+      state_in: "escalated"
+      state_out: "resolved"
+      context_in:
+        from_db:
+          - table: leads
+            as: "lead.md"
+            template: "templates/lead-context.md.hbs"
+            must_have: ["id", "email"]
+          - table: escalations
+            as: "escalation.md"
+            template: "templates/escalation-context.md.hbs"
+            must_have: ["id", "resolution_action", "resolution_notes"]
+        static:
+          - source: "config/escalation-actions/"
+            dest: "actions/"
+      context_out:
+        artifacts:
+          - file: "escalation_result.json"
+            required: true
+            persist_to: supabase_storage
+          - file: "status.yaml"
+            required: true
+            persist_to: supabase_storage
+      output_schema: "schemas/escalation-handler-output.ts"
+    config:
+      model: "sonnet"
+      allowed_tools:
+        - "Read"
+        - "Write"
+      permission_mode: "bypassPermissions"
+    limits:
+      max_tokens: 30000
+      max_tool_calls: 15
+      timeout_seconds: 90
+      max_retries: 2
+    workspace:
+      base: "leads/{org_id}/{lead_id}/"
+      cleanup: "on_success"
+      snapshot_on_failure: true
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# DATABASE
+# ═══════════════════════════════════════════════════════════════════════════════
+
+database:
+  migrations_dir: "supabase/migrations/"
+
+  actors:
+    - name: tenant
+      identifier: "current_setting('app.current_tenant')::uuid"
+      description: "The organization/tenant making the request"
+    - name: authenticated_user
+      identifier: "auth.uid()"
+      description: "The logged-in user from Supabase Auth"
+    - name: org_admin
+      identifier: "auth.uid()"
+      description: "User with admin role in the organization"
+
+  tables:
+    - name: organizations
+      access:
+        - actor: tenant
+          operations: [SELECT]
+          condition: "id = :actor"
+          description: "Users can only see their own organization"
+        - actor: org_admin
+          operations: [UPDATE]
+          condition: "id = current_setting('app.current_tenant')::uuid AND EXISTS (SELECT 1 FROM users WHERE id = :actor AND organization_id = current_setting('app.current_tenant')::uuid AND role = 'admin')"
+          description: "Only admins can update organization settings"
+      columns:
+        - name: id
+          type: uuid
+          nullable: false
+          default: "gen_random_uuid()"
+        - name: name
+          type: text
+          nullable: false
+        - name: domain
+          type: text
+          nullable: false
+        - name: settings
+          type: jsonb
+          nullable: true
+        - name: created_at
+          type: timestamptz
+          nullable: false
+          default: "now()"
+        - name: updated_at
+          type: timestamptz
+          nullable: false
+          default: "now()"
+
+    - name: users
+      access:
+        - actor: tenant
+          operations: [SELECT]
+          condition: "organization_id = :actor"
+          description: "Users can see other users in their organization"
+        - actor: authenticated_user
+          operations: [UPDATE]
+          condition: "id = :actor"
+          description: "Users can only update their own profile"
+        - actor: org_admin
+          operations: [INSERT, UPDATE, DELETE]
+          condition: "organization_id = current_setting('app.current_tenant')::uuid AND EXISTS (SELECT 1 FROM users WHERE id = :actor AND organization_id = current_setting('app.current_tenant')::uuid AND role = 'admin')"
+          description: "Admins can manage users in their organization"
+      columns:
+        - name: id
+          type: uuid
+          nullable: false
+          default: "gen_random_uuid()"
+        - name: organization_id
+          type: uuid
+          nullable: false
+          references: "organizations(id)"
+        - name: email
+          type: text
+          nullable: false
+        - name: role
+          type: text
+          nullable: false
+          default: "'member'"
+        - name: created_at
+          type: timestamptz
+          nullable: false
+          default: "now()"
+
+    - name: personas
+      access:
+        - actor: tenant
+          operations: [SELECT, INSERT, UPDATE, DELETE]
+          condition: "organization_id = :actor"
+          description: "Any org member can manage personas"
+      columns:
+        - name: id
+          type: uuid
+          nullable: false
+          default: "gen_random_uuid()"
+        - name: organization_id
+          type: uuid
+          nullable: false
+          references: "organizations(id)"
+        - name: name
+          type: text
+          nullable: false
+        - name: description
+          type: text
+          nullable: true
+        - name: owner_user_id
+          type: uuid
+          nullable: false
+          references: "users(id)"
+        - name: filter_criteria
+          type: jsonb
+          nullable: false
+        - name: eex_template_path
+          type: text
+          nullable: false
+        - name: active
+          type: boolean
+          nullable: false
+          default: "true"
+        - name: storage_path
+          type: text
+          nullable: false
+        - name: created_at
+          type: timestamptz
+          nullable: false
+          default: "now()"
+        - name: updated_at
+          type: timestamptz
+          nullable: false
+          default: "now()"
+
+    - name: suppressions
+      description: "Email addresses that should not receive outreach (org-level or global)"
+      access:
+        - actor: tenant
+          operations: [SELECT, INSERT, DELETE]
+          condition: "organization_id = :actor OR scope = 'global'"
+          description: "Org members can manage their suppression list and view global"
+      columns:
+        - name: id
+          type: uuid
+          nullable: false
+          default: "gen_random_uuid()"
+        - name: organization_id
+          type: uuid
+          nullable: true
+          references: "organizations(id)"
+          description: "NULL for global suppressions (hard bounces)"
+        - name: email
+          type: text
+          nullable: false
+        - name: scope
+          type: text
+          nullable: false
+          default: "'organization'"
+          description: "organization = only this org, global = all orgs (hard bounces)"
+        - name: reason
+          type: text
+          nullable: false
+          description: "Why suppressed: opt_out, complained, hard_bounce, manual"
+        - name: source_lead_id
+          type: uuid
+          nullable: true
+          references: "leads(id)"
+          description: "Lead that triggered the suppression (if applicable)"
+        - name: created_at
+          type: timestamptz
+          nullable: false
+          default: "now()"
+      indexes:
+        - columns: [organization_id, email, scope]
+          unique: true
+          description: "Fast lookup, prevents duplicates per scope"
+        - columns: [email, scope]
+          description: "Fast global suppression lookup"
+      notes:
+        - "Org-level (scope='organization'): opt_out, complained - only suppressed for that org"
+        - "Global (scope='global'): hard_bounce - email is undeliverable for ALL orgs"
+        - "John opts out of ACME → suppressed for ACME only"
+        - "John's email hard bounces → suppressed globally (can't deliver to anyone)"
+
+    - name: leads
+      access:
+        - actor: tenant
+          operations: [SELECT, INSERT, UPDATE, DELETE]
+          condition: "organization_id = :actor"
+          description: "Org members can manage leads in their organization"
+      columns:
+        - name: id
+          type: uuid
+          nullable: false
+          default: "gen_random_uuid()"
+        - name: organization_id
+          type: uuid
+          nullable: false
+          references: "organizations(id)"
+        - name: fingerprint
+          type: text
+          nullable: false
+        - name: email
+          type: text
+          nullable: true
+        - name: first_name
+          type: text
+          nullable: true
+        - name: last_name
+          type: text
+          nullable: true
+        - name: linkedin_url
+          type: text
+          nullable: true
+        - name: title
+          type: text
+          nullable: true
+        - name: company_name
+          type: text
+          nullable: true
+        - name: company_url
+          type: text
+          nullable: true
+        - name: captured_url
+          type: text
+          nullable: false
+        - name: enrichment_data
+          type: jsonb
+          nullable: true
+        - name: enrichment_status
+          type: text
+          nullable: false
+          default: "'pending'"
+        - name: persona_id
+          type: uuid
+          nullable: true
+          references: "personas(id)"
+        - name: match_score
+          type: numeric
+          nullable: true
+        - name: match_reasoning
+          type: text
+          nullable: true
+        - name: current_state
+          type: text
+          nullable: false
+          default: "'ingested'"
+        - name: status_yaml_path
+          type: text
+          nullable: true
+        - name: suppressed
+          type: boolean
+          nullable: false
+          default: "false"
+        - name: suppressed_reason
+          type: text
+          nullable: true
+        - name: created_at
+          type: timestamptz
+          nullable: false
+          default: "now()"
+        - name: updated_at
+          type: timestamptz
+          nullable: false
+          default: "now()"
+
+    - name: campaigns
+      access:
+        - actor: tenant
+          operations: [SELECT, INSERT, UPDATE, DELETE]
+          condition: "organization_id = :actor"
+          description: "Org members can manage campaigns"
+      columns:
+        - name: id
+          type: uuid
+          nullable: false
+          default: "gen_random_uuid()"
+        - name: organization_id
+          type: uuid
+          nullable: false
+          references: "organizations(id)"
+        - name: lead_id
+          type: uuid
+          nullable: false
+          references: "leads(id)"
+        - name: persona_id
+          type: uuid
+          nullable: false
+          references: "personas(id)"
+        - name: status
+          type: text
+          nullable: false
+          default: "'draft'"
+        - name: current_phase
+          type: text
+          nullable: false
+          default: "'setup'"
+        - name: approved_by
+          type: uuid
+          nullable: true
+          references: "users(id)"
+        - name: approved_at
+          type: timestamptz
+          nullable: true
+        - name: created_at
+          type: timestamptz
+          nullable: false
+          default: "now()"
+        - name: updated_at
+          type: timestamptz
+          nullable: false
+          default: "now()"
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # CAMPAIGN ITEMS - Individual executable items within a campaign
+    # ─────────────────────────────────────────────────────────────────────────
+    - name: campaign_items
+      access:
+        - actor: tenant
+          operations: [SELECT, INSERT, UPDATE, DELETE]
+          condition: "organization_id = :actor"
+          description: "Org members can manage campaign items"
+      columns:
+        - name: id
+          type: uuid
+          nullable: false
+          default: "gen_random_uuid()"
+        - name: organization_id
+          type: uuid
+          nullable: false
+          references: "organizations(id)"
+        - name: campaign_id
+          type: uuid
+          nullable: false
+          references: "campaigns(id)"
+        - name: item_type
+          type: text
+          nullable: false
+        - name: sequence
+          type: integer
+          nullable: false
+        - name: content_source
+          type: text
+          nullable: false
+        - name: status
+          type: text
+          nullable: false
+          default: "'pending'"
+        - name: subject
+          type: text
+          nullable: true
+        - name: body
+          type: text
+          nullable: true
+        - name: template_id
+          type: text
+          nullable: true
+        - name: personalization_data
+          type: jsonb
+          nullable: true
+        - name: draft_path
+          type: text
+          nullable: true
+        - name: resend_message_id
+          type: text
+          nullable: true
+        - name: sent_at
+          type: timestamptz
+          nullable: true
+        - name: delivered_at
+          type: timestamptz
+          nullable: true
+        - name: opened_at
+          type: timestamptz
+          nullable: true
+        - name: clicked_at
+          type: timestamptz
+          nullable: true
+        - name: replied_at
+          type: timestamptz
+          nullable: true
+        - name: created_at
+          type: timestamptz
+          nullable: false
+          default: "now()"
+        - name: updated_at
+          type: timestamptz
+          nullable: false
+          default: "now()"
+
+    - name: escalations
+      access:
+        - actor: tenant
+          operations: [SELECT, INSERT, UPDATE]
+          condition: "organization_id = :actor"
+          description: "Any org member can view and resolve escalations"
+      columns:
+        - name: id
+          type: uuid
+          nullable: false
+          default: "gen_random_uuid()"
+        - name: organization_id
+          type: uuid
+          nullable: false
+          references: "organizations(id)"
+        - name: lead_id
+          type: uuid
+          nullable: false
+          references: "leads(id)"
+        - name: campaign_id
+          type: uuid
+          nullable: false
+          references: "campaigns(id)"
+        - name: escalation_reason
+          type: text
+          nullable: false
+        - name: escalated_to_user_id
+          type: uuid
+          nullable: false
+          references: "users(id)"
+        - name: status
+          type: text
+          nullable: false
+          default: "'pending'"
+        - name: resolution_action
+          type: text
+          nullable: true
+        - name: resolution_notes
+          type: text
+          nullable: true
+        - name: resolved_by_user_id
+          type: uuid
+          nullable: true
+          references: "users(id)"
+        - name: resolved_at
+          type: timestamptz
+          nullable: true
+        - name: created_at
+          type: timestamptz
+          nullable: false
+          default: "now()"
+
+    - name: journey_analytics
+      access:
+        - actor: tenant
+          operations: [SELECT]
+          condition: "organization_id = :actor"
+          description: "Org members can view analytics"
+      columns:
+        - name: id
+          type: uuid
+          nullable: false
+          default: "gen_random_uuid()"
+        - name: organization_id
+          type: uuid
+          nullable: false
+          references: "organizations(id)"
+        - name: lead_id
+          type: uuid
+          nullable: false
+          references: "leads(id)"
+        - name: campaign_id
+          type: uuid
+          nullable: true
+          references: "campaigns(id)"
+        - name: outcome
+          type: text
+          nullable: false
+        - name: reason
+          type: text
+          nullable: false
+        - name: journey_duration_hours
+          type: numeric
+          nullable: false
+        - name: phases_completed
+          type: text[]
+          nullable: false
+        - name: emails_sent
+          type: integer
+          nullable: false
+        - name: emails_opened
+          type: integer
+          nullable: false
+        - name: emails_clicked
+          type: integer
+          nullable: false
+        - name: responses_received
+          type: integer
+          nullable: false
+        - name: created_at
+          type: timestamptz
+          nullable: false
+          default: "now()"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# WEBHOOKS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+webhooks:
+  # ─────────────────────────────────────────────────────────────────────────
+  # INNGEST-FIRST WEBHOOK ROUTING
+  # External Service → Hookdeck (transform) → /e/{source} → Inngest → Function
+  # See: context/tech-docs/webhook-routing.md
+  # ─────────────────────────────────────────────────────────────────────────
+  - name: rb2b-inbound
+    routing: inngest-first
+    hookdeck:
+      source: "RB2B"
+      destination_port: 8288
+      path: "/e/rb2b"
+      transformation: "hookdeck/transformations/rb2b.js"
+    emits: "webhook/rb2b.received"
+    description: "RB2B visitor data routed directly to Inngest via Hookdeck transformation"
+    notes:
+      - "Hookdeck transforms raw payload into Inngest event format"
+      - "No API route needed - Inngest receives event directly"
+      - "Validation, org lookup, and lead upsert happen in Inngest function"
+      - "Full observability from first byte in Inngest dashboard"
+
+  - name: clay-enrichment-callback
+    routing: inngest-first
+    hookdeck:
+      source: "Clay-Enrichment"
+      destination_port: 8288
+      path: "/e/clay"
+      transformation: "hookdeck/transformations/clay.js"
+    emits: "webhook/clay.received"
+    description: "Clay enrichment callback routed directly to Inngest"
+    notes:
+      - "Callback from Clay after enrichment completes"
+      - "Function validates and emits clay/enrichment.completed"
+
+  - name: resend-delivery-status
+    routing: inngest-first
+    hookdeck:
+      source: "Resend-Webhooks"
+      destination_port: 8288
+      path: "/e/resend"
+      transformation: "hookdeck/transformations/resend.js"
+    emits: "webhook/resend.received"
+    description: "Resend delivery events routed directly to Inngest"
+    notes:
+      - "Function routes to specific email.* events based on type"
+
+  - name: resend-inbound
+    routing: inngest-first
+    hookdeck:
+      source: "Resend-Inbound"
+      destination_port: 8288
+      path: "/e/resend-inbound"
+      transformation: "hookdeck/transformations/resend-inbound.js"
+    emits: "webhook/resend-inbound.received"
+    description: "Inbound email replies routed directly to Inngest"
+    notes:
+      - "Function parses reply and emits email.replied"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# CRONS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+crons:
+  - name: snooze-wakeup
+    schedule: "0 9 * * *"
+    function: "process-snoozed-leads"
+    description: "Wake up snoozed leads (daily at 9am)"
+
+  - name: timeout-checker
+    schedule: "*/30 * * * *"
+    function: "check-response-timeouts"
+    description: "Check for leads that have timed out (every 30 min)"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# NON-AGENTIC FUNCTIONS
+# Executor: ⚙️ Automated
+# ═══════════════════════════════════════════════════════════════════════════════
+
+functions:
+  # ─────────────────────────────────────────────────────────────────────────────
+  # WEBHOOK INGESTION (Inngest-first pattern)
+  # ─────────────────────────────────────────────────────────────────────────────
+  - name: ingest-rb2b-webhook
+    description: "Validates RB2B payload, resolves org, checks suppression, upserts lead"
+    pattern: inngest-first-webhook
+    trigger:
+      event: webhook/rb2b.received
+    emits:
+      - lead.ingested
+    steps:
+      - name: validate
+        action: "Parse and validate RB2B payload against schema"
+        on_failure: "NonRetriableError - don't retry invalid payloads"
+        notes:
+          - "RB2B field names have spaces and title case"
+          - "Required fields (never null): LinkedIn URL, First Name, Captured URL, City, State, Zipcode, Seen At"
+          - "Business Email may be null - handle gracefully"
+          - "See context/tech-docs/rb2b.md for full payload reference"
+      - name: lookup-org
+        action: "Extract domain from 'Captured URL', match against organizations.domain"
+        on_failure: "NonRetriableError - unknown org, log and discard"
+        notes:
+          - "'Captured URL' is the page on YOUR CUSTOMER'S site the visitor was on"
+          - "'Website' is the visitor's OWN company website - don't use for org lookup"
+          - "Example: Captured URL = https://acme.com/pricing → org domain = acme.com"
+          - "Extract domain: new URL(payload['Captured URL']).hostname.replace('www.', '')"
+      - name: check-suppression
+        action: "Check BOTH org-level AND global suppression lists"
+        on_failure: "Return early - suppressed leads don't emit events"
+        notes:
+          - "Org-level: SELECT 1 FROM suppressions WHERE organization_id = ? AND email = ? AND scope = 'organization'"
+          - "Global: SELECT 1 FROM suppressions WHERE email = ? AND scope = 'global'"
+          - "Org-level = opt_out, complained (person said no to THIS org)"
+          - "Global = hard_bounce (email undeliverable for ALL orgs)"
+          - "If EITHER found, log and return - do NOT create lead or emit event"
+      - name: upsert-lead
+        action: "Insert or update lead record, generate fingerprint"
+        on_failure: "Retry - transient DB errors"
+        notes:
+          - "Fingerprint = hash(Business Email + org_id) for deduplication"
+          - "If Business Email is null, use hash(LinkedIn URL + org_id) as fallback"
+          - "Upsert on fingerprint - is_repeat_visit from RB2B confirms returning visitor"
+          - "Field mapping (RB2B → leads table):"
+          - "  LinkedIn URL → linkedin_url"
+          - "  First Name → first_name"
+          - "  Last Name → last_name"
+          - "  Title → title"
+          - "  Company Name → company_name"
+          - "  Business Email → email"
+          - "  Website → company_url"
+          - "  Captured URL → captured_url"
+          - "  Seen At → visited_at (new field) or created_at"
+      - name: emit-ingested
+        action: "Send lead.ingested event"
+        notes:
+          - "Payload: { lead_id, organization_id, fingerprint, captured_url, trace_id }"
+          - "This triggers start-enrichment → enrichment.started → Clay + Firecrawl"
+    config:
+      retries: 3
+      timeout: "30s"
+    schema: "schemas/rb2b-webhook.ts"
+
+  - name: start-enrichment
+    description: "Transitions lead to enriching state and triggers enrichment pipeline"
+    pattern: simple
+    trigger:
+      event: lead.ingested
+    emits:
+      - enrichment.started
+    actions:
+      - "UPDATE leads SET current_state = 'enriching' WHERE id = lead_id"
+      - "Emit enrichment.started with lead_id, organization_id, trace_id"
+    notes:
+      - "This bridges ingestion → enrichment"
+      - "Enrichment pipeline: Clay (person data) + Firecrawl (company homepage)"
+
+  - name: ingest-clay-webhook
+    description: "Validates Clay callback, extracts enrichment data, emits clay/enrichment.completed"
+    pattern: inngest-first-webhook
+    trigger:
+      event: webhook/clay.received
+    emits:
+      - clay/enrichment.completed
+    steps:
+      - name: validate
+        action: "Parse and validate Clay callback payload"
+        on_failure: "NonRetriableError"
+      - name: extract-lead-id
+        action: "Extract lead_id from callback metadata"
+      - name: emit-completed
+        action: "Send clay/enrichment.completed with enrichment_data"
+    config:
+      retries: 3
+      timeout: "30s"
+
+  - name: ingest-resend-webhook
+    description: "Validates Resend event, extracts metadata, emits resend/event.received"
+    pattern: inngest-first-webhook
+    trigger:
+      event: webhook/resend.received
+    emits:
+      - resend/event.received
+    steps:
+      - name: validate
+        action: "Parse and validate Resend webhook payload"
+        on_failure: "NonRetriableError"
+      - name: lookup-campaign-item
+        action: "Find campaign_item by resend_message_id"
+      - name: emit-event
+        action: "Send resend/event.received with event_type and metadata"
+    config:
+      retries: 3
+      timeout: "30s"
+
+  - name: ingest-resend-inbound-webhook
+    description: "Validates inbound email, parses reply, emits email.replied"
+    pattern: inngest-first-webhook
+    trigger:
+      event: webhook/resend-inbound.received
+    emits:
+      - email.replied
+    steps:
+      - name: validate
+        action: "Parse and validate inbound email payload"
+        on_failure: "NonRetriableError"
+      - name: parse-reply
+        action: "Extract reply content, strip signatures/quoted text"
+      - name: lookup-thread
+        action: "Find campaign_item by In-Reply-To header"
+      - name: emit-replied
+        action: "Send email.replied with reply_content and campaign_item_id"
+    config:
+      retries: 3
+      timeout: "30s"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # RESEND EVENT ROUTING
+  # ─────────────────────────────────────────────────────────────────────────────
+  - name: route-resend-event
+    description: "Routes Resend webhook events to specific email event types"
+    pattern: routing
+    trigger:
+      event: resend/event.received
+      route_on: "payload.event_type"
+      routes:
+        sent:
+          emit: email.sent
+        delivered:
+          emit: email.delivered
+        opened:
+          emit: email.opened
+        clicked:
+          emit: email.clicked
+        bounced:
+          emit: email.bounced
+        complained:
+          emit: email.complained
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # ENRICHMENT FUNCTIONS
+  # ─────────────────────────────────────────────────────────────────────────────
+  - name: request-clay
+    description: "Sends lead data to Clay for enrichment"
+    pattern: simple
+    trigger:
+      event: enrichment.started
+    emits:
+      - clay/enrichment.requested
+    actions:
+      - "POST to Clay table webhook via Hookdeck"
+    integrations:
+      - hookdeck
+      - clay
+
+  - name: request-firecrawl
+    description: "Scrapes company homepage"
+    pattern: simple
+    trigger:
+      event: clay/enrichment.completed
+    emits:
+      - firecrawl/scrape.requested
+    actions:
+      - "POST to Firecrawl scrape endpoint"
+    integrations:
+      - firecrawl
+
+  - name: consolidate-enrichment
+    description: "Waits for both Clay and Firecrawl, marks lead enriched"
+    pattern: fan-in
+    trigger:
+      primary: clay/enrichment.completed
+      wait_for:
+        - lead.scraped
+      correlation_key: lead_id
+      timeout: "30m"
+    emits:
+      - lead.enriched
+      - enrichment.failed
+
+  - name: start-matching
+    description: "Transitions lead to matching state and triggers persona matcher"
+    pattern: simple
+    trigger:
+      event: lead.enriched
+    emits:
+      - matching.started
+    actions:
+      - "UPDATE leads SET current_state = 'matching'"
+      - "Count active personas for organization"
+      - "Emit matching.started with lead context and active_persona_count"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # CAMPAIGN SETUP FUNCTIONS
+  # ─────────────────────────────────────────────────────────────────────────────
+  - name: create-campaign
+    description: "Creates campaign structure after persona match"
+    pattern: simple
+    trigger:
+      event: lead.matched
+    emits:
+      - campaign.setup_started
+    actions:
+      - "Create campaigns record"
+      - "Create 9 campaign_items records (4 agent_drafted + 5 template_sourced)"
+
+  - name: request-wrapper-drafts
+    description: "Triggers agent to draft the 4 wrapper emails"
+    pattern: simple
+    trigger:
+      event: campaign.setup_started
+    emits:
+      - wrapper_emails.draft_requested
+
+  - name: personalize-eex
+    description: "Personalizes EEX templates with lead data (non-agentic)"
+    pattern: simple
+    trigger:
+      event: wrapper_emails.drafted
+    emits:
+      - eex.personalized
+    actions:
+      - "Load EEX templates from persona.eex_template_path"
+      - "Substitute {{first_name}}, {{company}}, etc."
+      - "Update campaign_items SET body = personalized_content WHERE content_source = 'template_sourced'"
+
+  - name: mark-ready-for-review
+    description: "Marks campaign ready for human review"
+    pattern: simple
+    trigger:
+      event: eex.personalized
+    emits:
+      - campaign.ready_for_review
+    actions:
+      - "UPDATE campaigns SET status = 'pending_approval'"
+      - "UPDATE leads SET current_state = 'pending_approval'"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # APPROVAL FUNCTIONS (Single Human Touchpoint)
+  # ─────────────────────────────────────────────────────────────────────────────
+  - name: approve-campaign-items
+    description: "Fan-out: marks all campaign items as approved"
+    pattern: simple
+    trigger:
+      event: campaign.approved
+    emits:
+      - reach_out.started
+    actions:
+      - "UPDATE campaign_items SET status = 'approved' WHERE campaign_id = payload.campaign_id"
+      - "UPDATE campaigns SET status = 'approved', approved_by = payload.approved_by, approved_at = now()"
+      - "UPDATE leads SET current_state = 'approved'"
+
+  - name: handle-revision-request
+    description: "Routes back to email drafter with feedback"
+    pattern: simple
+    trigger:
+      event: campaign.revision_requested
+    emits:
+      - wrapper_emails.draft_requested
+    actions:
+      - "Include feedback in event payload"
+
+  - name: handle-persona-change
+    description: "Routes back to persona matching"
+    pattern: simple
+    trigger:
+      event: campaign.persona_change_requested
+    emits:
+      - matching.started
+    actions:
+      - "Delete existing campaign_items"
+      - "Delete existing campaign"
+      - "UPDATE leads SET persona_id = null, current_state = 'matching'"
+
+  - name: handle-rejection
+    description: "Terminates lead on rejection"
+    pattern: simple
+    trigger:
+      event: campaign.rejected
+    emits:
+      - lead.terminated
+    actions:
+      - "UPDATE leads SET current_state = 'terminated'"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # EMAIL SENDING FUNCTIONS
+  # ─────────────────────────────────────────────────────────────────────────────
+  - name: send-reach-out-initial
+    description: "Sends the first reach out email"
+    pattern: simple
+    trigger:
+      event: reach_out.started
+    emits:
+      - email.send_requested
+    actions:
+      - "Load campaign_item WHERE sequence = 1"
+      - "Send via Resend"
+      - "UPDATE campaign_item SET status = 'sent', sent_at = now()"
+      - "Schedule followup timeout"
+    integrations:
+      - resend
+
+  - name: send-reach-out-followup
+    description: "Sends followup if no response"
+    pattern: simple
+    trigger:
+      event: timeout.response_wait
+    emits:
+      - email.send_requested
+    actions:
+      - "Load next pending campaign_item for phase"
+      - "Send via Resend"
+      - "Schedule next timeout"
+    integrations:
+      - resend
+
+  - name: send-eex-step
+    description: "Sends the next EEX step"
+    pattern: simple
+    trigger:
+      event: eex.started
+    emits:
+      - eex.step_sent
+    actions:
+      - "Load next pending EEX campaign_item"
+      - "Send via Resend"
+      - "Schedule next step or completion"
+    integrations:
+      - resend
+
+  - name: send-post-eex
+    description: "Sends post-EEX emails"
+    pattern: simple
+    trigger:
+      event: post_eex.started
+    emits:
+      - email.send_requested
+    actions:
+      - "Load post_eex_initial campaign_item"
+      - "Send via Resend"
+    integrations:
+      - resend
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # RESPONSE ROUTING FUNCTIONS
+  # ─────────────────────────────────────────────────────────────────────────────
+  - name: handle-accept-gift
+    description: "Starts EEX sequence on gift acceptance"
+    pattern: simple
+    trigger:
+      event: response.accept_gift
+    emits:
+      - eex.started
+    actions:
+      - "UPDATE campaigns SET current_phase = 'eex'"
+      - "UPDATE leads SET current_state = 'eex_active'"
+
+  - name: handle-meeting-request
+    description: "Handles meeting request"
+    pattern: simple
+    trigger:
+      event: response.request_meeting
+    emits:
+      - meeting.requested
+    actions:
+      - "UPDATE leads SET current_state = 'meeting_requested'"
+
+  - name: handle-snooze
+    description: "Handles snooze request"
+    pattern: simple
+    trigger:
+      event: response.delayed
+    emits:
+      - lead.snoozed
+    actions:
+      - "UPDATE leads SET current_state = 'snoozed'"
+      - "Store snooze metadata"
+
+  - name: handle-opt-out
+    description: "Terminates on opt-out and adds to ORG-LEVEL suppression list"
+    pattern: simple
+    trigger:
+      event: response.opt_out
+    emits:
+      - lead.terminated
+    actions:
+      - "INSERT INTO suppressions (organization_id, email, scope, reason, source_lead_id) SELECT organization_id, email, 'organization', 'opt_out', id FROM leads WHERE id = lead_id ON CONFLICT DO NOTHING"
+      - "UPDATE leads SET current_state = 'terminated', suppressed = true, suppressed_reason = 'opt_out'"
+    notes:
+      - "Scope = 'organization' - only suppressed for THIS org"
+      - "If John opts out of ACME, he can still receive emails from other orgs"
+
+  - name: handle-bounce
+    description: "Terminates on hard bounce and adds to GLOBAL suppression list"
+    pattern: simple
+    trigger:
+      event: email.bounced
+    emits:
+      - lead.terminated
+    actions:
+      - "IF bounce_type = 'permanent' THEN INSERT INTO suppressions (organization_id, email, scope, reason, source_lead_id) SELECT NULL, email, 'global', 'hard_bounce', id FROM leads WHERE id = lead_id ON CONFLICT DO NOTHING"
+      - "UPDATE leads SET current_state = 'terminated', suppressed = true, suppressed_reason = 'bounced'"
+    notes:
+      - "Scope = 'global' with organization_id = NULL"
+      - "Hard bounces mean email is undeliverable - suppress for ALL orgs"
+      - "Only suppress on permanent/hard bounces, NOT transient (soft) bounces"
+      - "Check bounce_type in event payload: 'permanent' vs 'transient'"
+
+  - name: handle-complaint
+    description: "Terminates on spam complaint and adds to ORG-LEVEL suppression list"
+    pattern: simple
+    trigger:
+      event: email.complained
+    emits:
+      - lead.terminated
+    actions:
+      - "INSERT INTO suppressions (organization_id, email, scope, reason, source_lead_id) SELECT organization_id, email, 'organization', 'complained', id FROM leads WHERE id = lead_id ON CONFLICT DO NOTHING"
+      - "UPDATE leads SET current_state = 'terminated', suppressed = true, suppressed_reason = 'complained'"
+    notes:
+      - "Scope = 'organization' - person marked THIS org's email as spam"
+      - "They may still be willing to hear from other orgs"
+      - "Consider alerting org admin on complaint"
+
+  - name: handle-not-interested
+    description: "Terminates on not interested"
+    pattern: simple
+    trigger:
+      event: response.not_interested
+    emits:
+      - lead.terminated
+    actions:
+      - "UPDATE leads SET current_state = 'terminated'"
+
+  - name: handle-unclear
+    description: "Escalates unclear responses"
+    pattern: simple
+    trigger:
+      event: response.unclear
+    emits:
+      - lead.escalated
+    actions:
+      - "UPDATE leads SET current_state = 'escalated'"
+      - "Create escalation record"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # LIFECYCLE FUNCTIONS
+  # ─────────────────────────────────────────────────────────────────────────────
+  - name: handle-cancel
+    description: "User cancels campaign during in-flight"
+    pattern: simple
+    trigger:
+      event: campaign.canceled
+    emits:
+      - lead.canceled
+      - lead.journey_completed
+    actions:
+      - "UPDATE campaigns SET status = 'canceled'"
+      - "UPDATE leads SET current_state = 'canceled'"
+
+  - name: archive-lead
+    description: "Archives lead with no persona match"
+    pattern: simple
+    trigger:
+      event: lead.no_match
+    emits:
+      - lead.archived
+      - lead.journey_completed
+    actions:
+      - "UPDATE leads SET current_state = 'archived'"
+
+  - name: convert-lead
+    description: "Converts lead on meeting booked"
+    pattern: simple
+    trigger:
+      event: meeting.booked
+    emits:
+      - lead.converted
+      - lead.journey_completed
+    actions:
+      - "UPDATE leads SET current_state = 'converted'"
+
+  - name: aggregate-journey
+    description: "Computes journey analytics"
+    pattern: simple
+    trigger:
+      event: lead.journey_completed
+    actions:
+      - "Calculate metrics"
+      - "INSERT into journey_analytics"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # CRON FUNCTIONS
+  # ─────────────────────────────────────────────────────────────────────────────
+  - name: process-snoozed-leads
+    description: "Wakes up snoozed leads"
+    pattern: cron
+    trigger:
+      cron: "0 9 * * *"
+      schedule: "Daily at 9am"
+    emits:
+      - reach_out.started
+      - post_eex.started
+    actions:
+      - "Query leads WHERE current_state = 'snoozed' AND snoozed_until <= now()"
+      - "Resume at appropriate phase"
+
+  - name: check-response-timeouts
+    description: "Checks for timeout leads"
+    pattern: cron
+    trigger:
+      cron: "*/30 * * * *"
+      schedule: "Every 30 minutes"
+    emits:
+      - timeout.response_wait
+    actions:
+      - "Query campaign_items WHERE status = 'sent' AND sent_at > threshold"
+      - "Emit timeout events"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# OBSERVABILITY
+# ═══════════════════════════════════════════════════════════════════════════════
+
+observability:
+  logging:
+    level: "info"
+    format: "json"
+  tracing:
+    enabled: true
+    trace_id_field: "trace_id"

@@ -1,0 +1,39 @@
+# EEX Email 2
+# Why Intent Data Isn't Enough
+# Challenges conventional thinking, introduces new framing
+
+email_number: 2
+send_delay_days: 2
+
+content:
+  subject: "Why intent data isn't enough"
+
+  body: |
+    {first_name},
+
+    Yesterday I mentioned that 97% of your website visitors leave unknown. Today, let's talk about the solution most companies try first: intent data.
+
+    The pitch is compelling. Third-party intent data tells you who's researching your category. You can see which companies are "in-market."
+
+    But here's the problem: that data tells you who's researching *your category*. It doesn't tell you who's researching *you*.
+
+    Your website visitors are different. They're already on your site. They're already reading your content. They're showing first-party intent—the strongest signal there is.
+
+    And yet most companies have no system to capture it.
+
+    Think about it: you're paying for third-party signals about strangers while ignoring first-party signals from people actively evaluating you.
+
+    Tomorrow: why the gap between "someone visited your site" and "sales has a conversation" is where most pipeline dies.
+
+    —Alex
+
+  cta:
+    type: "implicit"
+    text: "Tomorrow: why the gap between 'someone visited your site' and 'sales has a conversation' is where most pipeline dies."
+
+metadata:
+  topic: "Why Intent Data Isn't Enough"
+  key_insight: "First-party intent from your site visitors is stronger than third-party intent data"
+  belief_shift: "Your own website traffic is your best intent signal"
+  word_count: 175
+  tone: "Logical, slightly contrarian, building the case"

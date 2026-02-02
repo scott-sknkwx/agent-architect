@@ -1,0 +1,45 @@
+# Email History for Lead {{lead_id}}
+
+## Conversation Thread
+
+{{#each emails}}
+---
+### {{email_type}} ({{status}})
+
+**Sent**: {{#if sent_at}}{{sent_at}}{{else}}Not yet sent{{/if}}
+**Subject**: {{subject}}
+**Resend Message ID**: {{resend_message_id}}
+
+{{#if body_preview}}
+**Preview**:
+> {{body_preview}}
+{{/if}}
+
+#### Engagement
+{{#if delivered_at}}- Delivered: {{delivered_at}}{{/if}}
+{{#if first_opened_at}}- First Opened: {{first_opened_at}} ({{open_count}} total opens){{/if}}
+{{#if first_clicked_at}}- First Clicked: {{first_clicked_at}} ({{click_count}} total clicks){{/if}}
+{{#if bounced_at}}- Bounced: {{bounced_at}} ({{bounce_type}}){{/if}}
+
+{{/each}}
+
+## Responses Received
+
+{{#each responses}}
+---
+### Response to: {{in_reply_to_email_type}}
+
+**Received**: {{received_at}}
+**Classification**: {{classification}} ({{sentiment}})
+
+**Content**:
+> {{raw_snippet}}
+
+**Agent Reasoning**: {{agent_reasoning}}
+**Recommended Action**: {{recommended_action}}
+
+{{/each}}
+
+{{#unless responses}}
+*No responses received yet.*
+{{/unless}}

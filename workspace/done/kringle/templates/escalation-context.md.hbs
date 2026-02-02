@@ -1,0 +1,50 @@
+# Escalation Context
+
+## Escalation Details
+- **Escalation ID**: {{id}}
+- **Lead ID**: {{lead_id}}
+- **Organization ID**: {{organization_id}}
+
+## Reason for Escalation
+**Reason**: {{escalation_reason}}
+**Escalated At**: {{escalated_at}}
+**Escalated To**: {{escalated_to}}
+
+## Current Status
+**Status**: {{status}}
+
+{{#if resolution}}
+## Human Resolution
+
+**Resolved By**: {{resolution.resolved_by}}
+**Resolved At**: {{resolution.resolved_at}}
+
+### Resolution Action
+**Action Selected**: {{resolution.resolution_action}}
+
+{{#if resolution.resolution_notes}}
+### Resolution Notes
+{{resolution.resolution_notes}}
+{{/if}}
+{{/if}}
+
+## Lead Context at Time of Escalation
+
+### Position
+- **Phase**: {{lead_context.current_phase}}
+- **State**: {{lead_context.current_state}}
+- **Step**: {{lead_context.current_step}}
+
+### Recent Activity
+{{#each lead_context.recent_events}}
+- {{timestamp}}: {{event}}
+{{/each}}
+
+{{#if lead_context.last_response}}
+### Last Response Received
+**Received**: {{lead_context.last_response.received_at}}
+**Content**:
+> {{lead_context.last_response.raw_snippet}}
+
+**Previous Classification Attempt**: {{lead_context.last_response.classification}} (confidence: {{lead_context.last_response.confidence}})
+{{/if}}

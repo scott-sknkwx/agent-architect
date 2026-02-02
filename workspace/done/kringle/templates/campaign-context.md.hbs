@@ -1,0 +1,46 @@
+# Campaign Context
+
+## Campaign Info
+- **Campaign ID**: {{id}}
+- **Lead ID**: {{lead_id}}
+- **Persona ID**: {{persona_id}}
+- **Created At**: {{created_at}}
+
+## Current Position
+- **Phase**: {{current_phase}}
+- **Step**: {{current_step}}
+{{#if eex_step}}
+- **EEX Progress**: Step {{eex_step}} of {{eex_steps_total}}
+{{/if}}
+
+## Template Configuration
+- **Template Source**: {{template_source}}
+
+### Timing Settings
+{{#with template_snapshot.timing}}
+- **Default Wait**: {{default_wait}}
+- **Reach Out Wait After Initial**: {{reach_out.wait_after_initial}}
+- **EEX Wait Between Steps**: {{eex.wait_between_steps}}
+{{/with}}
+
+### Approval Settings
+{{#with template_snapshot.approval}}
+- **Reminder Interval**: {{reminder_interval}}
+- **Max Reminders**: {{max_reminders}}
+- **Max Rejections**: {{max_rejections}}
+{{/with}}
+
+## Emails Sent
+{{#each emails}}
+### {{email_type}}
+- **Status**: {{status}}
+- **Subject**: {{subject}}
+{{#if sent_at}}- **Sent At**: {{sent_at}}{{/if}}
+{{#if draft_version}}- **Draft Version**: {{draft_version}}{{/if}}
+
+{{/each}}
+
+## Statistics
+- **Emails Sent**: {{emails_sent_count}}
+- **Emails Opened**: {{emails_opened_count}}
+- **Emails Clicked**: {{emails_clicked_count}}

@@ -138,7 +138,7 @@ When the Constraints say "use Agent Factory patterns," this means: design system
 
 ### Agent Factory Components
 
-The agentic systems defined by Agent Architect use the following core components as building blocks: 
+The agentic systems defined by Agent Architect use the following core components as building blocks:
 
 | Component | Generated | NOT Generated |
 |-----------|-----------|---------------|
@@ -146,6 +146,21 @@ The agentic systems defined by Agent Architect use the following core components
 | **Events** | Event definitions in manifest | TypeScript event types |
 | **Agents** | CLAUDE.md instructions, output schemas | TypeScript agent runner code |
 | **Functions** | Spec files (`.spec.md`) with implementation context | TypeScript function code |
+
+### Agent Runtime Layer
+
+Agent Architect produces design artifacts; Agent Factory generates the runtime code that executes them. The runtime layer bridges manifest definitions to SDK calls:
+
+```
+Design Artifacts              Runtime Code (Agent Factory generates)
+────────────────              ────────────────────────────────────
+agents/{name}.md        →     src/inngest/agents/{name}.ts
+schemas/{name}-output.ts →    (imported by agent runner)
+contract.context_in     →     lib/workspace.ts hydration
+contract.output_schema  →     SDK outputFormat option
+```
+
+See `.claude/context/patterns/agent-runtime-pattern.md` for the canonical agent runner implementation pattern.
 
 ---
 
@@ -456,7 +471,9 @@ User triggers for process phases:
 |----------|---------|
 | `.claude/context/manifest/output-structure.md` | Expected output directory tree and file purposes |
 | `.claude/context/manifest/reference.md` | Contract definitions, access control, function integrations |
+| `.claude/context/manifest/contract-to-sdk-mapping.md` | How manifest fields map to SDK query() options |
 | `.claude/context/manifest/examples/sample-product/` | Canonical example workspace with annotated files |
+| `workspace/done/kringle/` | Complete reference implementation with runtime docs |
 | `plans/function-capability/README.md` | Function spec approach overview |
 | `plans/function-capability/spec-format.md` | Function spec template and sections |
 
@@ -465,6 +482,7 @@ User triggers for process phases:
 | Pattern | File | When to Use |
 |---------|------|-------------|
 | **Agent Boundaries** | `.claude/context/patterns/agent-boundaries.md` | Single Responsibility Test, common agent types, boundary rules |
+| **Agent Runtime** | `.claude/context/patterns/agent-runtime-pattern.md` | How agents execute: workspace hydration, SDK query(), cleanup |
 | **Bundle Approval** | `.claude/context/patterns/bundle-approval-pattern.md` | Multiple items need human review; avoid approval fatigue |
 | **CLAUDE.md Patterns** | `.claude/context/patterns/claude-md-patterns.md` | Template structure for agent instructions in Phase 4 |
 | **Content Sourcing** | `.claude/context/patterns/content-sourcing-pattern.md` | Distinguishing agent-drafted vs template-sourced content |

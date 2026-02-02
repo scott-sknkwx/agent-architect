@@ -1,0 +1,35 @@
+# Persona: {{name}}
+
+## Overview
+- **Persona ID**: {{id}}
+- **Description**: {{description}}
+- **Owner**: {{owner_user_id}}
+- **Active**: {{active}}
+- **Storage Path**: {{storage_path}}
+
+## Filter Criteria Summary
+{{#with filter_criteria}}
+### Target Titles
+**Include**: {{#each matching_criteria.titles.include}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}
+**Exclude**: {{#each matching_criteria.titles.exclude}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}
+
+### Target Seniority
+**Include**: {{#each matching_criteria.seniority.include}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}
+
+### Target Industries
+**Include**: {{#each matching_criteria.industries.include}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}
+
+### Company Size
+- **Min**: {{matching_criteria.company_size.min_employees}}
+- **Max**: {{matching_criteria.company_size.max_employees}}
+- **Ideal**: {{matching_criteria.company_size.ideal_range}}
+
+### Company Stage
+**Include**: {{#each matching_criteria.company_stage.include}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}
+
+### Confidence Threshold
+**Minimum Score**: {{confidence_threshold}}
+{{/with}}
+
+---
+*Full filter_criteria.yaml, pain_points.yaml, and messaging_angles.yaml available in persona directory.*
