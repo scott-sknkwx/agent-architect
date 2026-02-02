@@ -70,6 +70,40 @@ Who interacts with this system and what can they see?
 - What events MUST interrupt the autonomous flow?
 - Can we get to "approve once, run automatically"?
 
+### 10. Database Schema (Progressive Disclosure)
+
+For each entity identified in Domain (question 3):
+
+**Step 1: Core Fields**
+> "For a [lead], what information do we need to track beyond the basics?"
+> (Skip: id, created_at, updated_at — Supabase handles these automatically)
+
+**Step 2: Relationships**
+> "Does a [lead] belong to anything? (org, user, campaign, etc.)"
+> "Can a [lead] have multiple [X]? (one-to-many)"
+
+**Step 3: Constraints**
+> "Which fields are required vs optional?"
+> "Any fields with specific allowed values? (status = draft|sent|delivered)"
+
+**Step 4: Confirm**
+> "Here's what I have for the [leads] table: [list columns]. Does this capture everything for MVP?"
+
+Reference: `context/patterns/database-patterns.md` for common column patterns.
+
+### 11. Integrations
+> "What external services will this connect to?"
+
+- Email sending? (Resend)
+- Lead enrichment? (Clay)
+- Webhooks from? (RB2B, Stripe, etc.)
+- Payments? (Stripe)
+- Web scraping? (Firecrawl)
+- Browser automation? (Parallel)
+- Other APIs?
+
+Reference: `context/tech-docs/` for integration guidance.
+
 ---
 
 ## Signals to Listen For
@@ -106,6 +140,10 @@ After discovery, you should have answers to:
 - [ ] Can approvals be batched?
 - [ ] What content is agent-drafted vs template-sourced?
 - [ ] What are the autonomy boundaries?
+- [ ] Database tables with columns (MVP only, logical schema)
+- [ ] Relationships between tables
+- [ ] Required vs optional fields
+- [ ] External integrations needed
 
 **Next step:** Proceed to Phase 2: Domain Modeling with these answers.
 

@@ -96,11 +96,32 @@ After Domain Modeling (agents, events, state machine), BEFORE generation:
 
 ```
 1. Draw the entity lifecycle as ASCII
-2. Mark every human touchpoint with 👤
-3. Mark every agent invocation with 🤖
+2. Mark every touchpoint with executor type:
+   - 👤 Human (approval, escalation)
+   - 🤖 Agent (judgment, creativity)
+   - ⚙️ Function (deterministic, same input → same output)
+3. For each step, define the flow:
+   | Field | Description |
+   |-------|-------------|
+   | Executor | 🤖/⚙️/👤 |
+   | Trigger | Event or cron |
+   | Input Validation | What must be true |
+   | Steps | What happens |
+   | Output Validation | What must be true after |
+   | Persist | DB changes |
+   | Emit | Next event(s) |
 4. Ask: "Does this match your mental model?"
-5. Iterate until alignment
+5. Iterate until alignment (expect 2-3 rounds)
 ```
+
+**Classification heuristics:**
+- 🤖 Agent: Requires judgment, multiple valid approaches, "figure it out"
+- ⚙️ Function: Deterministic, rules can be code, same input → same output
+- 👤 Human: Approval required, escalation, legal/compliance checkpoint
+
+**Quick test:** If complete logic fits a flowchart with no "it depends" nodes → ⚙️ Function
+
+Reference: `context/patterns/flow-patterns.md`
 
 ### New Discovery Questions
 
@@ -167,17 +188,21 @@ This makes the implicit explicit and invites correction BEFORE code generation.
 │  3. Where are the human touchpoints?                       │
 │  4. What can be batched vs. incremental?                   │
 │  5. What's autonomous once started?                        │
+│  6. What database columns? What integrations?              │
 └─────────────────────────────────────────────────────────────┘
                           │
                           ▼
 ┌─────────────────────────────────────────────────────────────┐
-│  VISUALIZE                                                  │
+│  VISUALIZE + CLASSIFY                                       │
 │                                                             │
 │  Draw ASCII lifecycle with:                                │
-│  - 👤 Human touchpoints                                    │
-│  - 🤖 Agent invocations                                    │
-│  - ⚙️ Automated functions                                  │
+│  - 👤 Human (approval, escalation)                         │
+│  - 🤖 Agent (judgment, creativity)                         │
+│  - ⚙️ Function (deterministic, API calls)                  │
 │  - Clear phase boundaries                                  │
+│                                                             │
+│  For each step, define flow:                               │
+│  Trigger → Validate → Process → Validate → Persist → Emit  │
 └─────────────────────────────────────────────────────────────┘
                           │
                           ▼
@@ -188,6 +213,7 @@ This makes the implicit explicit and invites correction BEFORE code generation.
 │  - Expect corrections                                      │
 │  - Look for bundling opportunities                         │
 │  - Question every human touchpoint                         │
+│  - Verify agent vs function classification                 │
 └─────────────────────────────────────────────────────────────┘
                           │
                           ▼
