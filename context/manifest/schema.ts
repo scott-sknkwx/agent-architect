@@ -116,6 +116,84 @@ const WorkspaceSchema = z.object({
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
+// FLOW VALIDATION & PERSISTENCE
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Input validation rules for agents and functions.
+ * Checked BEFORE processing begins. If validation fails, the step errors without executing.
+ *
+ * Syntax uses SQL-like expressions with {{ field }} template interpolation:
+ * - payload: Array of required payload fields
+ * - exists: SQL-like existence check, e.g., "leads.id = {{ lead_id }}"
+ * - state: SQL-like state check, e.g., "leads.status IN ('new', 'retry')"
+ * - files: Array of required artifact paths
+ */
+const ValidationRuleSchema = z.object({
+  payload: z.array(z.string()).optional().describe("Required payload fields"),
+  exists: z.string().optional().describe("SQL-like existence check, e.g., 'leads.id = {{ lead_id }}'"),
+  state: z.string().optional().describe("SQL-like state check, e.g., 'leads.status IN (\"new\", \"retry\")'"),
+  files: z.array(z.string()).optional().describe("Required artifact file paths"),
+});
+
+/**
+ * Output validation rules for agents and functions.
+ * Checked AFTER processing completes. If validation fails, the step errors before emitting.
+ */
+const OutputValidationSchema = z.object({
+  schema: z.string().optional().describe("Path to Zod schema file for output validation"),
+  require_artifacts: z.boolean().optional().describe("Whether artifacts must be created"),
+});
+
+/**
+ * Persist actions define database changes that occur after successful processing.
+ * Uses declarative SQL-like syntax with {{ result.field }} template interpolation.
+ *
+ * Supports three action types:
+ * - update: Update existing records
+ * - insert: Insert new records
+ * - log: Append to audit/event log tables
+ *
+ * Use custom_function as an escape hatch for complex persistence logic.
+ */
+const PersistUpdateActionSchema = z.object({
+  update: z.string().describe("Table name to update"),
+  set: z.record(z.string(), z.string()).describe("Column-value pairs using {{ result.field }} syntax"),
+  where: z.string().optional().describe("SQL WHERE clause, e.g., 'id = {{ lead_id }}'"),
+});
+
+const PersistInsertActionSchema = z.object({
+  insert: z.string().describe("Table name to insert into"),
+  values: z.record(z.string(), z.string()).describe("Column-value pairs using {{ result.field }} syntax"),
+});
+
+const PersistLogActionSchema = z.object({
+  log: z.string().describe("Log/audit table name"),
+  data: z.record(z.string(), z.string()).optional().describe("Additional data to log"),
+});
+
+const PersistCustomActionSchema = z.object({
+  custom_function: z.string().describe("Path to custom persistence function (escape hatch)"),
+});
+
+const PersistActionSchema = z.union([
+  PersistUpdateActionSchema,
+  PersistInsertActionSchema,
+  PersistLogActionSchema,
+  PersistCustomActionSchema,
+]);
+
+/**
+ * Flow fields that can be added to agents and functions.
+ * These define the validation and persistence behavior for each step.
+ */
+const FlowFieldsSchema = z.object({
+  validate_input: ValidationRuleSchema.optional().describe("Input validation rules - checked before processing"),
+  validate_output: OutputValidationSchema.optional().describe("Output validation rules - checked after processing"),
+  persist: z.array(PersistActionSchema).optional().describe("Database changes after successful processing"),
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
 // FULL AGENT SCHEMA
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -132,6 +210,11 @@ const AgentSchema = z.object({
   config: AgentConfigSchema,
   limits: AgentLimitsSchema.optional(),
   workspace: WorkspaceSchema.optional(),
+
+  // Flow fields (optional - for explicit validation/persistence)
+  validate_input: ValidationRuleSchema.optional(),
+  validate_output: OutputValidationSchema.optional(),
+  persist: z.array(PersistActionSchema).optional(),
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -280,6 +363,11 @@ const FunctionSchema = z.object({
   integrations: z.array(z.string()).optional(),
   context: z.string().optional(),
   open_questions: z.array(z.string()).optional(),
+
+  // Flow fields (optional - for explicit validation/persistence)
+  validate_input: ValidationRuleSchema.optional(),
+  validate_output: OutputValidationSchema.optional(),
+  persist: z.array(PersistActionSchema).optional(),
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -510,6 +598,10 @@ export type Contract = z.infer<typeof ContractSchema>;
 export type StateMachine = z.infer<typeof StateMachineSchema>;
 export type StateDefinition = z.infer<typeof StateDefinitionSchema>;
 export type AgentLimits = z.infer<typeof AgentLimitsSchema>;
+export type ValidationRule = z.infer<typeof ValidationRuleSchema>;
+export type OutputValidation = z.infer<typeof OutputValidationSchema>;
+export type PersistAction = z.infer<typeof PersistActionSchema>;
+export type FlowFields = z.infer<typeof FlowFieldsSchema>;
 export type Webhook = z.infer<typeof WebhookSchema>;
 export type TraditionalWebhook = z.infer<typeof TraditionalWebhookSchema>;
 export type InngestFirstWebhook = z.infer<typeof InngestFirstWebhookSchema>;

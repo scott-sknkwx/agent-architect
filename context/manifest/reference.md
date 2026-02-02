@@ -189,3 +189,152 @@ For each agent in the manifest:
 - [ ] Schema includes `error: z.string().optional()` field
 - [ ] Schema fields match the "Structured output" examples in agent's CLAUDE.md
 - [ ] Enum values match event payload enums in manifest
+
+---
+
+## Flow Validation & Persistence
+
+Agents and functions can optionally define explicit validation and persistence behavior using flow fields. These make the Universal Loop explicit in the manifest.
+
+### The Universal Loop
+
+Every step follows this pattern:
+
+```
+Event Listen → Validate Input → ACTION → Validate Output → Persist → Event Emit
+```
+
+Flow fields capture the validation and persistence parts of this loop.
+
+### Input Validation (`validate_input`)
+
+Checked BEFORE processing begins. If validation fails, the step errors without executing.
+
+```yaml
+validate_input:
+  payload: [lead_id, org_id]                    # Required payload fields
+  exists: "leads.id = {{ lead_id }}"            # Entity must exist
+  state: "leads.status IN ('new', 'retry')"     # Entity must be in valid state
+  files: ["/context/personas/default.md"]       # Required files must exist
+```
+
+| Field | Type | Purpose |
+|-------|------|---------|
+| `payload` | `string[]` | Required fields in event payload |
+| `exists` | `string` | SQL-like existence check with `{{ field }}` interpolation |
+| `state` | `string` | SQL-like state check |
+| `files` | `string[]` | Required artifact paths |
+
+### Output Validation (`validate_output`)
+
+Checked AFTER processing completes. If validation fails, the step errors before emitting.
+
+```yaml
+validate_output:
+  schema: "schemas/qualifier-output.ts"    # Zod schema for output validation
+  require_artifacts: true                   # Artifacts must be created
+```
+
+| Field | Type | Purpose |
+|-------|------|---------|
+| `schema` | `string` | Path to Zod schema file |
+| `require_artifacts` | `boolean` | Whether output artifacts are required |
+
+### Persistence Actions (`persist`)
+
+Database changes that occur after successful processing. Uses declarative SQL-like syntax.
+
+**Update existing records:**
+```yaml
+persist:
+  - update: leads
+    set:
+      status: "{{ result.status }}"
+      score: "{{ result.score }}"
+      reasoning: "{{ result.reasoning }}"
+    where: "id = {{ lead_id }}"
+```
+
+**Insert new records:**
+```yaml
+persist:
+  - insert: enrichment_results
+    values:
+      lead_id: "{{ lead_id }}"
+      data: "{{ result.enrichment_data }}"
+      source: "{{ result.source }}"
+```
+
+**Append to audit log:**
+```yaml
+persist:
+  - log: qualification_events
+    data:
+      lead_id: "{{ lead_id }}"
+      outcome: "{{ result.qualified }}"
+      agent_version: "v1"
+```
+
+**Custom function (escape hatch):**
+
+For complex persistence logic that can't be expressed declaratively:
+
+```yaml
+persist:
+  - custom_function: "lib/persist/handle-qualification.ts"
+```
+
+Use `custom_function` sparingly—it's an escape hatch when declarative syntax isn't expressive enough.
+
+### Complete Example
+
+```yaml
+agents:
+  - name: qualifier
+    description: "Evaluate lead against ICP criteria"
+    triggers:
+      - event: lead.enriched
+    emits:
+      - event: lead.qualified
+        when: "result.qualified == true"
+      - event: lead.disqualified
+        when: "result.qualified == false"
+
+    # Flow validation & persistence
+    validate_input:
+      payload: [lead_id, org_id]
+      exists: "leads.id = {{ lead_id }}"
+      state: "leads.status = 'enriched'"
+
+    validate_output:
+      schema: "schemas/qualifier-output.ts"
+
+    persist:
+      - update: leads
+        set:
+          status: "{{ result.qualified ? 'qualified' : 'disqualified' }}"
+          qualification_score: "{{ result.score }}"
+          qualification_reasoning: "{{ result.reasoning }}"
+        where: "id = {{ lead_id }}"
+      - log: qualification_events
+        data:
+          lead_id: "{{ lead_id }}"
+          outcome: "{{ result.qualified }}"
+
+    contract:
+      state_in: enriched
+      state_out: "{{ result.qualified ? 'qualified' : 'disqualified' }}"
+      # ... rest of contract
+```
+
+### When to Use Flow Fields
+
+| Scenario | Recommendation |
+|----------|----------------|
+| Simple agent with obvious state transition | Skip flow fields, use contract only |
+| Complex validation before processing | Add `validate_input` |
+| Need to persist more than state change | Add `persist` with update/insert/log |
+| Audit trail required | Add `persist` with `log` action |
+| Multiple database updates needed | Add `persist` with multiple actions |
+
+Flow fields are OPTIONAL. Most agents work fine with just the contract. Add flow fields when you need explicit control over validation or persistence beyond state transitions.
