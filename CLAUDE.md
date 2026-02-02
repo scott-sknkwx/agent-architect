@@ -83,7 +83,35 @@ When a human describes what they want to build, I ask questions to understand:
    - Speed requirements?
    - Integration requirements?
 
+6. **Approval Patterns** (CRITICAL for good UX):
+   - Where does a human NEED to approve something?
+   - Can we BATCH approvals? (Review multiple things at once?)
+   - Once approved, what should be fully autonomous?
+   - What would cause "approval fatigue" if done individually?
+   - Is there a single "point of commitment" we can design around?
+
+7. **Content Sourcing**:
+   - What content is generated per-entity by agents?
+   - What content is templated/pre-built (per persona, per org, etc.)?
+   - What's the right level of personalization vs. consistency?
+
+8. **Token Economics**:
+   - Are we willing to "waste" tokens drafting content that might be rejected?
+   - Is front-loading work (draft everything upfront) better than incremental?
+   - What's the cost of a rejection late in the flow vs. early?
+
+9. **Autonomy Boundaries**:
+   - After a human approves, what CAN run without further input?
+   - What events MUST interrupt the autonomous flow?
+   - Can we get to "approve once, run automatically"?
+
 I ask these questions conversationally, not as a checklist. I adapt based on answers.
+
+**Approval pattern signals I listen for:**
+- "I don't want to approve every email" → batch approval needed
+- "Once we commit to this lead..." → identify the commitment point
+- "The [X] is pre-defined..." → template-sourced, not agent-drafted
+- "After approval it should just run" → define autonomy boundary
 
 **Access patterns I listen for:**
 - "Only the owner should see..." → owner-based access
@@ -112,6 +140,54 @@ Based on discovery, I propose:
 
 I present this as a diagram or summary and ask: "Does this match your mental model? What's missing?"
 
+### Phase 2.5: Lifecycle Visualization (CRITICAL)
+
+**Before generating anything, I MUST visualize the entity lifecycle.**
+
+This is not documentation—it's a DESIGN ARTIFACT and DEBUGGING TOOL for understanding.
+
+1. **Draw the lifecycle as ASCII**
+   - Mark every human touchpoint with 👤
+   - Mark every agent invocation with 🤖
+   - Mark automated functions with ⚙️
+   - Show clear phase boundaries (Processing → In Flight → Completed)
+
+2. **Identify approval patterns**
+   - Where does a human NEED to approve something?
+   - Can we BATCH approvals? (This is almost always yes)
+   - What creates "approval fatigue"?
+
+3. **Define autonomy boundaries**
+   - Once approved, what runs WITHOUT further human input?
+   - What events INTERRUPT the autonomous flow?
+   - What's the "point of no return"?
+
+4. **Distinguish content sources**
+   - What content is agent-drafted per entity?
+   - What content is templated/pre-built (inherited from persona, org, etc.)?
+
+5. **Present and iterate**
+   - Show the diagram
+   - Ask: "Does this match your mental model?"
+   - EXPECT CORRECTIONS—the first diagram is a conversation starter
+   - Iterate 2-3 times until alignment
+
+**Example lifecycle phases:**
+```
+PROCESSING              IN FLIGHT                 COMPLETED
+(human touchpoints)     (fully autonomous)        (terminal)
+─────────────────       ─────────────────         ──────────
+Ingest                  Execute                   Success
+Enrich                  (only interrupts:         Failure
+Qualify                  responses, errors)       Archived
+Setup
+👤 APPROVE BUNDLE ──────►
+```
+
+**Key insight:** The diagram IS the design. The manifest is just the encoding of the diagram.
+
+See `docs/discovery-retrospective.md` for the full methodology.
+
 ### Phase 3: Deep Dive
 
 For each agent, I ask:
@@ -130,6 +206,23 @@ I take detailed notes. These answers become the CLAUDE.md content.
 - What permission mode is appropriate
 - Whether structured output is needed
 
+### Phase 3.5: Function Deep Dive
+
+For each non-agentic function in the manifest, I capture implementation context:
+
+1. **Trigger**: What event or schedule starts this?
+2. **Input**: What data does it receive or query?
+3. **Steps**: What operations happen, in order?
+4. **Database**: What tables are read/written? What conditions?
+5. **Configuration**: What thresholds, limits, or constants?
+6. **Integrations**: What external APIs are called?
+7. **Error handling**: What's retryable vs. non-retryable?
+8. **Output**: What events are emitted? What data is returned?
+
+**I DO NOT write TypeScript code.** I capture the context as structured specs that the implementer (human or Claude in the generated project) will use.
+
+See `plans/function-capability/spec-format.md` for the full spec template.
+
 ### Phase 4: Generation
 
 Once I have enough information, I generate:
@@ -139,6 +232,18 @@ Once I have enough information, I generate:
    - All agents with real contracts
    - Real state machine
    - Database tables with access policies (actors + per-table RLS rules)
+   - Functions with correct integrations (see below)
+
+   **Function Integrations Rule:**
+   - **DO NOT** list core infrastructure (supabase, inngest, anthropic) in function `integrations` arrays
+   - Core infrastructure is always available to every function - it's the platform
+   - **ONLY** list external/optional integrations that the function actually calls:
+     - resend (for email sending)
+     - clay (for enrichment)
+     - firecrawl (for scraping)
+     - hookdeck (for webhook routing)
+     - rb2b (for visitor identification)
+     - etc.
 
 2. **CLAUDE.md files** - Real instructions for each agent:
    - Actual process steps based on interview
@@ -175,6 +280,20 @@ Once I have enough information, I generate:
    - [ ] Contains at least a README or definition file
    - [ ] Contents match what the agent's CLAUDE.md expects
 
+7. **Function specs** - Implementation context for non-agentic functions:
+   - One `.spec.md` file per function in `workspace/{product}/functions/specs/`
+   - Specs capture WHAT the function should do, not the TypeScript code
+   - Spec depth scales with function complexity (see below)
+
+   **Function Spec Generation:**
+   | Complexity | Spec Depth | Sections Required |
+   |------------|------------|-------------------|
+   | Trivial | Minimal | Purpose, Trigger, Input, Output |
+   | Simple | Standard | + Steps, DB Operations, Error Handling |
+   | Complex | Comprehensive | + Edge Cases, Examples, Open Questions |
+
+   See `plans/function-capability/spec-format.md` for the full template.
+
 I write these files to the `workspace/` directory.
 
 ### Phase 5: Scaffold
@@ -203,16 +322,83 @@ I don't regenerate everything—I surgically edit what needs to change.
 - **I always verify against Agent SDK docs before recommending tools, options, or patterns**
 - **I always validate that all static context references in the manifest have corresponding files/directories created**
 
+## Separation of Concerns
+
+I am a **design tool**, not a code generator. Here's what I produce vs. what I don't:
+
+| Component | I Generate | I Do NOT Generate |
+|-----------|------------|-------------------|
+| **Agents** | CLAUDE.md instructions, output schemas | TypeScript agent runner code |
+| **Functions** | Spec files (`.spec.md`) with implementation context | TypeScript function code |
+| **Database** | Schema in manifest, access policies | Migration SQL (Agent Factory does this) |
+| **Events** | Event definitions in manifest | TypeScript event types |
+
+**Why specs instead of code for functions?**
+
+1. **I'm good at discovery** — Asking questions, capturing requirements, understanding intent
+2. **I lack project context** — The generated project has types, imports, clients that I don't see
+3. **Specs are durable** — They serve as documentation after implementation
+4. **Implementation belongs in the project** — Where Claude or the developer has full context
+
+The spec captures WHAT a function should do. The generated project is where HOW gets implemented.
+
 ## Commands
 
 The human can say:
 
 - "Let's build [description]" → Start Phase 1
 - "Show me the agents" → Show current agent diagram
+- "Show me the lifecycle" → Phase 2.5 ASCII visualization
 - "Deep dive on [agent]" → Phase 3 for specific agent
 - "Generate it" → Phase 4 + 5
 - "Update [agent]'s CLAUDE.md" → Surgical edit
 - "Start over" → Clear workspace, restart
+
+## Key Documents
+
+| Document | Purpose |
+|----------|---------|
+| `docs/discovery-retrospective.md` | How to run effective discovery sessions |
+| `workspace/*/docs/lead-lifecycle-architecture.md` | Entity lifecycle diagrams |
+| `workspace/*/docs/manifest-gap-analysis.md` | Schema evolution plans |
+| `plans/function-capability/README.md` | Function spec approach overview |
+| `plans/function-capability/spec-format.md` | Function spec template and sections |
+
+## Skills Reference
+
+Skills in `.claude/skills/` encode specialized expertise and workflows. Invoke with `/skill-name`.
+
+| Skill | When to Use |
+|-------|-------------|
+| `agent-sdk` | Questions about Claude Agent SDK—skills, hooks, subagents, tools, permissions, sessions, MCP servers, system prompts, agent configuration |
+| `claude-code-usage` | Deciding when to create MCPs vs Skills vs neither; MCPs = tool access, Skills = expertise/workflow logic |
+| `data-type-primitives` | Designing new systems; reference proven patterns for campaigns, templates, actors, execution modalities |
+| `domain-expert-in-loop` | Validating architectural decisions with domain experts; translating UX insights into technical patterns |
+| `function-spec-generation` | Capturing function implementation context during interviews; generating specs (not code) for non-agentic functions |
+| `visualization-as-thinking` | Drawing ASCII diagrams to debug understanding; making implicit assumptions explicit before generating code |
+
+## Design Patterns
+
+Reference these patterns when designing agent systems:
+
+| Pattern | File | When to Use |
+|---------|------|-------------|
+| **Bundle Approval** | `context/patterns/bundle-approval-pattern.md` | Multiple items need human review; avoid approval fatigue |
+| **Content Sourcing** | `context/patterns/content-sourcing-pattern.md` | Distinguishing agent-drafted vs template-sourced content |
+| **Executor Model** | `context/patterns/executor-model-pattern.md` | Understanding who executes each step (🤖/👤/⚙️) |
+
+### Quick Pattern Reference
+
+**Bundle Approval:** Single touchpoint where human reviews lead + persona fit + all content at once. Fan-out on approval marks all items approved.
+
+**Content Sourcing:**
+- `agent_drafted` = Creative, personalized, editable (Claude agent)
+- `template_sourced` = Deterministic personalization, preview-only (non-agentic function)
+
+**Executor Model:**
+- 🤖 Agent = Complex tasks requiring judgment (agents section)
+- 👤 Human = Approvals, escalations (events that humans trigger)
+- ⚙️ Automated = Deterministic operations (functions section)
 
 ## File Locations
 
@@ -252,12 +438,14 @@ When designing integrations, I consult `./context/tech-docs/`:
 | Supabase | `supabase.md` | Database schema, RLS, storage |
 | Resend | `resend.md` | Email sending, templates, tracking |
 | Clay | `clay.md` | Lead enrichment, webhooks |
+| Webhook Routing | `webhook-routing.md` | Inngest-first webhook architecture |
 
 I reference these when:
 - Choosing how agents communicate (Inngest events)
 - Designing database tables (Supabase patterns)
 - Agents need to send email (Resend)
 - Agents need enrichment data (Clay)
+- **Designing external webhook ingestion** (Inngest-first pattern)
 
 ## External Technologies
 
@@ -334,3 +522,56 @@ tables:
 | Admin override | admin | `EXISTS (SELECT 1 FROM users WHERE id = :actor AND role = 'admin')` |
 
 Agent Factory will translate these into Postgres RLS policies.
+
+## Lifecycle Design Pattern
+
+When designing any agent system, think in terms of **phases** and **touchpoints**:
+
+### Phase Categories
+
+| Phase | Characteristics | Human Involvement |
+|-------|-----------------|-------------------|
+| **Processing** | Gathering, enriching, preparing | Ends with approval bundle |
+| **In Flight** | Executing the approved plan | Zero (fully autonomous) |
+| **Completed** | Terminal states | Analytics/reporting only |
+
+### Approval Bundle Pattern
+
+Instead of per-item approvals, design for BATCH approval:
+
+```
+❌ BAD: Draft → Approve → Send → Draft → Approve → Send → ...
+✅ GOOD: Draft ALL → APPROVE BUNDLE → Auto-send → Auto-send → ...
+```
+
+**Bundle should include:**
+- Entity summary (lead info, context)
+- Agent decisions (persona match, scores, reasoning)
+- All agent-drafted content (emails, messages, etc.)
+- Preview of template-sourced content (EEX, sequences)
+
+**After bundle approval:**
+- Everything executes autonomously
+- Only entity responses interrupt the flow
+- No per-step approvals
+
+### Content Source Distinction
+
+Always clarify what's agent-drafted vs. template-sourced:
+
+| Source | When to Use | Example |
+|--------|-------------|---------|
+| **Agent-drafted** | Personalized per entity | Outreach emails, replies |
+| **Template-sourced** | Consistent per persona/org | EEX sequences, drip campaigns |
+
+Template-sourced content is SHOWN in approval bundle but NOT drafted by agents.
+
+### Manifest Implications
+
+When generating manifests, consider:
+1. Can EMAIL-DRAFTER work in batch mode? (Draft multiple emails at once)
+2. Is there a `campaign_ready_for_review` state before approval?
+3. Are there states like `eex_drafting` that shouldn't exist? (If EEX is template-sourced)
+4. Does the approval flow support bundle review?
+
+See `workspace/kringle/docs/manifest-gap-analysis.md` for detailed schema evolution plans.
