@@ -403,8 +403,11 @@ User triggers for process phases:
 
 | Pattern | File | When to Use |
 |---------|------|-------------|
+| **Agent Boundaries** | `context/patterns/agent-boundaries.md` | Single Responsibility Test, common agent types, boundary rules |
 | **Bundle Approval** | `context/patterns/bundle-approval-pattern.md` | Multiple items need human review; avoid approval fatigue |
+| **CLAUDE.md Patterns** | `context/patterns/claude-md-patterns.md` | Template structure for agent instructions in Phase 4 |
 | **Content Sourcing** | `context/patterns/content-sourcing-pattern.md` | Distinguishing agent-drafted vs template-sourced content |
+| **Event Design** | `context/patterns/event-design-patterns.md` | Naming conventions (noun.verb), payload design, granularity |
 | **Executor Model** | `context/patterns/executor-model-pattern.md` | Understanding who executes each step (🤖/👤/⚙️) |
 | **Access Control** | `context/manifest/reference.md#access-control-pattern` | Database RLS policies, actor definitions |
 
