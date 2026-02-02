@@ -30,18 +30,6 @@ When making ANY decisions about agent implementation, I MUST consult the Agent S
 | Hosting and deployment | `docs/guides/hosting.md` |
 | Security hardening | `docs/guides/secure-deployment.md` |
 
-**Before generating any agent config, I read:**
-- `docs/typescript-sdk.md` for `ClaudeAgentOptions` type
-- `docs/guides/subagents.md` for `AgentDefinition` type
-- `docs/guides/structured-outputs.md` for output schema patterns
-
-**Before recommending tools, I read:**
-- `docs/agent-sdk-overview.md` for built-in tools list
-- `docs/guides/custom-tools.md` for MCP tool patterns
-
-**Before writing CLAUDE.md files, I read:**
-- `docs/guides/system-prompts.md` for best practices
-
 ## How To Run Agent Factory
 ```bash
 cd workspace
@@ -52,73 +40,16 @@ npx tsx ../../agent-factory/src/cli.ts init --manifest manifest.yaml
 
 ### Phase 1: Discovery
 
-When a human describes what they want to build, I ask questions to understand:
+When a human describes what they want to build, I use the `/discovery` skill to guide the conversation. The skill covers:
 
-1. **Trigger**: What starts the process?
-   - External webhook (from what service?)
-   - Scheduled job (how often?)
-   - Manual submission (via what interface?)
-
-2. **Goal**: What's the end state?
-   - Data in a CRM?
-   - Email sent?
-   - Report generated?
-   - Human notified?
-
-3. **Domain**: What concepts exist?
-   - What's the primary entity? (lead, podcast, ticket, document)
-   - What states can it be in?
-   - What data needs to be tracked?
-
-4. **Actors & Access**: Who interacts with this system and what can they see?
-   - Who are the different types of users? (end users, admins, agents, service accounts)
-   - Is this multi-tenant? Single-tenant? User-scoped?
-   - For each data type: Who can read it? Who can write it? Under what conditions?
-   - Are there relationships that grant access? (team membership, ownership, delegation)
-   - Do agents need different access than humans?
-
-5. **Constraints**:
-   - Human approval needed where?
-   - Budget/cost sensitivity?
-   - Speed requirements?
-   - Integration requirements?
-
-6. **Approval Patterns** (CRITICAL for good UX):
-   - Where does a human NEED to approve something?
-   - Can we BATCH approvals? (Review multiple things at once?)
-   - Once approved, what should be fully autonomous?
-   - What would cause "approval fatigue" if done individually?
-   - Is there a single "point of commitment" we can design around?
-
-7. **Content Sourcing**:
-   - What content is generated per-entity by agents?
-   - What content is templated/pre-built (per persona, per org, etc.)?
-   - What's the right level of personalization vs. consistency?
-
-8. **Token Economics**:
-   - Are we willing to "waste" tokens drafting content that might be rejected?
-   - Is front-loading work (draft everything upfront) better than incremental?
-   - What's the cost of a rejection late in the flow vs. early?
-
-9. **Autonomy Boundaries**:
-   - After a human approves, what CAN run without further input?
-   - What events MUST interrupt the autonomous flow?
-   - Can we get to "approve once, run automatically"?
+- **Trigger, Goal, Domain** — What starts it, what's the end state, what entities exist
+- **Actors & Access** — Who can see/modify what (see [Access Control](#access-control-pattern))
+- **Approval Patterns** — Where humans approve, can we batch, what's autonomous after
+- **Content Sourcing** — What's agent-drafted vs template-sourced
+- **Token Economics** — Cost of rejection late vs early, front-loading work
+- **Autonomy Boundaries** — What runs without input after approval
 
 I ask these questions conversationally, not as a checklist. I adapt based on answers.
-
-**Approval pattern signals I listen for:**
-- "I don't want to approve every email" → batch approval needed
-- "Once we commit to this lead..." → identify the commitment point
-- "The [X] is pre-defined..." → template-sourced, not agent-drafted
-- "After approval it should just run" → define autonomy boundary
-
-**Access patterns I listen for:**
-- "Only the owner should see..." → owner-based access
-- "Everyone in the org..." → tenant isolation
-- "Admins can see all..." → role-based access
-- "If you're on the team..." → relationship-based access
-- "Anyone can read but only authenticated users can write..." → public read, auth write
 
 ### Phase 2: Domain Modeling
 
@@ -206,22 +137,77 @@ I take detailed notes. These answers become the CLAUDE.md content.
 - What permission mode is appropriate
 - Whether structured output is needed
 
+### Deciding: Agent or Function?
+
+| Use Agent (🤖) When... | Use Function (⚙️) When... |
+|------------------------|---------------------------|
+| Task requires judgment | Logic is fully deterministic |
+| Output varies by context | Same input → same output |
+| Reasoning needed | Rules can be expressed as code |
+| "Figure out the right answer" | "Execute the defined steps" |
+
+**Examples:**
+- Persona matching → Agent (weighs multiple signals)
+- Email drafting → Agent (creative, personalized)
+- Timeout checks → Function (query + emit, no judgment)
+- Webhook validation → Function (schema parse, pass/fail)
+
+**Decision heuristic:** If you can write the complete logic as a flowchart with no "it depends" nodes, it's a function. If it needs to "figure out" the right answer, it's an agent.
+
 ### Phase 3.5: Function Deep Dive
 
-For each non-agentic function in the manifest, I capture implementation context:
+For each non-agentic function in the manifest, I ask detailed questions to capture implementation context:
 
-1. **Trigger**: What event or schedule starts this?
-2. **Input**: What data does it receive or query?
-3. **Steps**: What operations happen, in order?
-4. **Database**: What tables are read/written? What conditions?
-5. **Configuration**: What thresholds, limits, or constants?
-6. **Integrations**: What external APIs are called?
-7. **Error handling**: What's retryable vs. non-retryable?
-8. **Output**: What events are emitted? What data is returned?
+**Trigger & Timing:**
+- "What event triggers this function?" or "What schedule does it run on?"
+- "Where does this event come from?" (for context on upstream)
+
+**Data & Queries:**
+- "What database tables does this function read from?"
+- "What are the query conditions?" (status, time thresholds, etc.)
+- "What fields does it need from each table?"
+
+**Logic & Output:**
+- "What should happen for each item/event?"
+- "What events should be emitted and with what data?"
+- "What does the function return?"
+
+**Configuration:**
+- "Are there configurable values?" (thresholds, limits, timeouts)
+- "What are sensible defaults?"
+
+**Error Handling:**
+- "What errors are expected?" (empty results, not found, etc.)
+- "What errors should NOT be retried?" (validation failures, bad data)
+
+**Edge Cases:**
+- "What happens if [unusual scenario]?"
+- "Are there any known complications?"
+
+I capture answers in my notes and use them to generate specs in Phase 4.
 
 **I DO NOT write TypeScript code.** I capture the context as structured specs that the implementer (human or Claude in the generated project) will use.
 
 See `plans/function-capability/spec-format.md` for the full spec template.
+
+### Function Complexity Classification
+
+I classify each function before generating its spec:
+
+| Tier | Criteria | Spec Depth |
+|------|----------|------------|
+| **Trivial** | Pattern: webhook/simple, Steps: 1-2, No DB writes, No conditionals | Minimal |
+| **Simple** | Pattern: simple/cron, Steps: 3-5, May have DB ops, Linear flow | Standard |
+| **Complex** | Pattern: fan-in/routing, Multiple integrations, Conditional logic, Has open questions | Comprehensive |
+
+**Complexity signals:**
+
+- `fan-in` or `routing` pattern → Complex
+- `wait_for` in trigger → Complex
+- `open_questions` in manifest → Complex
+- Multiple integrations → Complex
+- 4+ steps → Simple or Complex
+- Database writes with conditional logic → Simple or Complex
 
 ### Phase 4: Generation
 
@@ -358,9 +344,10 @@ The human can say:
 
 | Document | Purpose |
 |----------|---------|
+| `docs/workspace-structure.md` | Expected workspace directory tree and file purposes |
+| `docs/manifest-reference.md` | Contract definitions, access control, function integrations |
 | `docs/discovery-retrospective.md` | How to run effective discovery sessions |
-| `workspace/*/docs/lead-lifecycle-architecture.md` | Entity lifecycle diagrams |
-| `workspace/*/docs/manifest-gap-analysis.md` | Schema evolution plans |
+| `context/examples/sample-product/` | Canonical example workspace with annotated files |
 | `plans/function-capability/README.md` | Function spec approach overview |
 | `plans/function-capability/spec-format.md` | Function spec template and sections |
 
@@ -370,6 +357,7 @@ Skills in `.claude/skills/` encode specialized expertise and workflows. Invoke w
 
 | Skill | When to Use |
 |-------|-------------|
+| `discovery` | Starting a new agent system design; guides the interview to capture all requirements |
 | `agent-sdk` | Questions about Claude Agent SDK—skills, hooks, subagents, tools, permissions, sessions, MCP servers, system prompts, agent configuration |
 | `claude-code-usage` | Deciding when to create MCPs vs Skills vs neither; MCPs = tool access, Skills = expertise/workflow logic |
 | `data-type-primitives` | Designing new systems; reference proven patterns for campaigns, templates, actors, execution modalities |
@@ -408,9 +396,9 @@ Reference these patterns when designing agent systems:
 - I write generated products to: `./workspace/`
 - I run agent-factory from: `./workspace/`
 
-## Built-in Tools Reference (from Agent SDK)
+## Agent Contract Tools
 
-When configuring `allowedTools` for agents, these are available:
+Tools that agents can request in their manifest `allowedTools` configuration:
 
 | Tool | Purpose |
 |------|---------|
@@ -449,7 +437,7 @@ I reference these when:
 
 ## External Technologies
 
-These are the external tech solutions we use. See `context/tech-docs/` for patterns and integration details.
+Trusted integrations commonly used in generated projects. Local docs provide design guidance; web search official docs for current API signatures.
 
 | Tech | Purpose | Local Reference | Official Docs |
 |------|---------|-----------------|---------------|
@@ -474,104 +462,9 @@ These are the external tech solutions we use. See `context/tech-docs/` for patte
 
 Every table MUST have at least one access policy. RLS is mandatory, not optional.
 
-### Defining Actors
+For full documentation on actors, policies, and common patterns, see [`docs/manifest-reference.md`](docs/manifest-reference.md#access-control-pattern).
 
-Actors are the identities that access data. Define them once in `database.actors`:
-
-```yaml
-database:
-  actors:
-    - name: tenant
-      identifier: "current_setting('app.current_tenant')::uuid"
-      description: "The organization/tenant making the request"
-    - name: authenticated_user
-      identifier: "auth.uid()"
-      description: "The logged-in user from Supabase Auth"
-    - name: owner
-      identifier: "auth.uid()"
-      description: "The user who created/owns the record"
-```
-
-### Defining Access Policies
-
-Each table declares who can do what using the `:actor` placeholder:
-
-```yaml
-tables:
-  - name: leads
-    columns: [...]
-    access:
-      - actor: tenant
-        operations: [SELECT, INSERT, UPDATE, DELETE]
-        condition: "org_id = :actor"
-        description: "Users can only access leads in their org"
-      - actor: owner
-        operations: [UPDATE, DELETE]
-        condition: "created_by = :actor"
-        description: "Only the creator can modify their leads"
-```
-
-### Common Access Patterns
-
-| Pattern | Actor | Condition |
-|---------|-------|-----------|
-| Tenant isolation | tenant | `org_id = :actor` |
-| Owner only | owner | `user_id = :actor` OR `created_by = :actor` |
-| Team membership | team_member | `team_id IN (SELECT team_id FROM memberships WHERE user_id = :actor)` |
-| Public read | public | `true` (for SELECT only) |
-| Admin override | admin | `EXISTS (SELECT 1 FROM users WHERE id = :actor AND role = 'admin')` |
-
-Agent Factory will translate these into Postgres RLS policies.
-
-## Lifecycle Design Pattern
-
-When designing any agent system, think in terms of **phases** and **touchpoints**:
-
-### Phase Categories
-
-| Phase | Characteristics | Human Involvement |
-|-------|-----------------|-------------------|
-| **Processing** | Gathering, enriching, preparing | Ends with approval bundle |
-| **In Flight** | Executing the approved plan | Zero (fully autonomous) |
-| **Completed** | Terminal states | Analytics/reporting only |
-
-### Approval Bundle Pattern
-
-Instead of per-item approvals, design for BATCH approval:
-
-```
-❌ BAD: Draft → Approve → Send → Draft → Approve → Send → ...
-✅ GOOD: Draft ALL → APPROVE BUNDLE → Auto-send → Auto-send → ...
-```
-
-**Bundle should include:**
-- Entity summary (lead info, context)
-- Agent decisions (persona match, scores, reasoning)
-- All agent-drafted content (emails, messages, etc.)
-- Preview of template-sourced content (EEX, sequences)
-
-**After bundle approval:**
-- Everything executes autonomously
-- Only entity responses interrupt the flow
-- No per-step approvals
-
-### Content Source Distinction
-
-Always clarify what's agent-drafted vs. template-sourced:
-
-| Source | When to Use | Example |
-|--------|-------------|---------|
-| **Agent-drafted** | Personalized per entity | Outreach emails, replies |
-| **Template-sourced** | Consistent per persona/org | EEX sequences, drip campaigns |
-
-Template-sourced content is SHOWN in approval bundle but NOT drafted by agents.
-
-### Manifest Implications
-
-When generating manifests, consider:
-1. Can EMAIL-DRAFTER work in batch mode? (Draft multiple emails at once)
-2. Is there a `campaign_ready_for_review` state before approval?
-3. Are there states like `eex_drafting` that shouldn't exist? (If EEX is template-sourced)
-4. Does the approval flow support bundle review?
-
-See `workspace/kringle/docs/manifest-gap-analysis.md` for detailed schema evolution plans.
+**Quick reference:**
+- Define actors once in `database.actors` (tenant, owner, admin, etc.)
+- Each table declares access policies with `:actor` placeholder
+- Common patterns: tenant isolation, owner-only, team membership, public read
