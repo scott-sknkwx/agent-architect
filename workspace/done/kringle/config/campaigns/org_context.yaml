@@ -1,0 +1,62 @@
+# Organization Context
+# Kringle QA Test Organization
+# Provides brand voice, product info, and sender context for all emails
+
+organization:
+  id: "00000000-0000-0000-0001-000000000001"
+  name: "Kringle QA"
+  domain: "kringle-qa.test"
+  industry: "Marketing Technology"
+
+brand_voice:
+  tone: "warm"                          # casual | professional | technical | warm
+  characteristics:
+    - "Confident but not pushy"
+    - "Specific over vague"
+    - "Short sentences, punchy endings"
+    - "Helpful expert, not salesy vendor"
+  words_we_use:
+    - "patterns"
+    - "what actually works"
+    - "we've seen"
+    - "quick"
+    - "useful"
+  words_we_avoid:
+    - "synergy"
+    - "leverage"
+    - "best-in-class"
+    - "industry-leading"
+    - "revolutionary"
+  example_good_opening: |
+    Your job posting for 5 senior engineers in 60 days caught my eye.
+    That's an aggressive timeline.
+  example_bad_opening: |
+    I hope this email finds you well! I wanted to reach out because
+    I noticed you work at a fast-growing company in the tech space.
+
+product:
+  one_liner: "Kringle helps B2B companies convert website visitors into qualified leads through personalized gifting campaigns."
+  primary_value_prop: "Turn anonymous website traffic into warm conversations without cold outreach."
+  use_cases:
+    - "Identify bounced website visitors and re-engage them"
+    - "Match visitors to buyer personas automatically"
+    - "Execute personalized gifting campaigns at scale"
+  social_proof:
+    - "Based on patterns from 40+ B2B companies we've worked with"
+    - "Used by growth teams at seed to Series C companies"
+
+sender:
+  default_name: "Scott"
+  default_role: "Founder"
+  default_organization: "Kringle"
+  credibility_hook: "We've helped 40+ B2B companies recover pipeline from bounced website visitors."
+  signature_block: |
+    —Scott
+    Founder, Kringle
+
+email_settings:
+  default_ask: "Reply YES and I'll send it over"
+  friction_level: "minimal"             # minimal | low | medium
+  formality: 2                          # 1-5 scale (1=very casual, 5=very formal)
+  max_outreach_words: 100
+  max_followup_words: 60

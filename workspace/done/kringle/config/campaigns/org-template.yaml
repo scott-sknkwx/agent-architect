@@ -1,0 +1,28 @@
+# Organization Campaign Template
+#
+# This is the campaign template for the test organization (Kringle QA).
+# Inherited from the platform template.
+#
+# Orgs can override any field from the platform template.
+# This template uses platform defaults for most values.
+
+version: "1.0"
+inherit_from: "platform"
+
+metadata:
+  name: "Kringle QA Campaign Template"
+  description: "Campaign template for Kringle QA test organization. Uses platform defaults."
+  created_at: "2026-01-27T00:00:00Z"
+  updated_at: "2026-01-27T00:00:00Z"
+
+# This org uses platform defaults for all phases, timing, and approval settings.
+# To customize, add overrides here. Examples:
+#
+# timing:
+#   default_wait: "48h"  # Override platform's 24h default
+#
+# phases:
+#   reach_out:
+#     emails:
+#       - type: gift_offer
+#         wait_after: "72h"  # Override platform's 48h default

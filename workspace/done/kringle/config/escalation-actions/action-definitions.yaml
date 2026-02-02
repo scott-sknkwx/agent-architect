@@ -1,0 +1,138 @@
+# Escalation Resolution Actions
+# These define the valid actions a human can take when resolving an escalation
+
+version: "1.0"
+
+actions:
+  # Resume the sequence where it left off
+  - id: continue_sequence
+    label: "Continue Sequence"
+    description: "Resume the email sequence from where it paused"
+    requires_notes: false
+    next_event: draft.requested
+    parameters: {}
+
+  # Request a revision to the most recent draft
+  - id: revise_draft
+    label: "Revise Draft"
+    description: "Request a new draft with specific feedback"
+    requires_notes: true
+    next_event: draft.requested
+    parameters:
+      feedback:
+        source: resolution_notes
+        required: true
+    prompts:
+      - "What should the draft address differently?"
+      - "Any specific tone or content to include?"
+
+  # Pause the lead for follow-up later
+  - id: snooze
+    label: "Snooze"
+    description: "Pause communications and resume later"
+    requires_notes: true
+    next_event: lead.snoozed
+    parameters:
+      snooze_until:
+        type: datetime
+        required: true
+        default_offset: "7d"
+      snooze_reason:
+        source: resolution_notes
+        required: false
+    prompts:
+      - "When should we resume contact?"
+      - "Why are we waiting? (optional)"
+
+  # Fast-track to meeting scheduling
+  - id: schedule_meeting
+    label: "Schedule Meeting"
+    description: "Lead is ready for a meeting - bypass remaining sequence"
+    requires_notes: false
+    next_event: response.request_meeting
+    parameters: {}
+    terminal_action: false
+
+  # End the lead journey
+  - id: terminate
+    label: "Terminate"
+    description: "End all communications with this lead"
+    requires_notes: true
+    next_event: lead.terminated
+    parameters:
+      terminate_reason:
+        type: enum
+        values:
+          - human_decision
+          - bad_fit
+          - do_not_contact
+          - other
+        default: human_decision
+    terminal_action: true
+    warning: "This will permanently end the lead journey. Are you sure?"
+
+  # Free-form human guidance
+  - id: custom
+    label: "Custom Action"
+    description: "Provide free-form instructions for the agent to interpret"
+    requires_notes: true
+    next_event: null  # Agent determines based on interpretation
+    parameters:
+      instructions:
+        source: resolution_notes
+        required: true
+    interpretation_hints:
+      snooze_keywords:
+        - "wait"
+        - "later"
+        - "hold"
+        - "pause"
+        - "after"
+        - "circle back"
+      revise_keywords:
+        - "rewrite"
+        - "revise"
+        - "try again"
+        - "respond"
+        - "reply"
+        - "answer"
+        - "draft"
+      terminate_keywords:
+        - "stop"
+        - "end"
+        - "kill"
+        - "close"
+        - "not a fit"
+        - "do not contact"
+      meeting_keywords:
+        - "schedule"
+        - "book"
+        - "meet"
+        - "call"
+        - "calendar"
+
+# Escalation reason to suggested action mapping
+reason_suggestions:
+  unclear_response:
+    primary: revise_draft
+    alternatives:
+      - custom
+      - terminate
+  approval_timeout:
+    primary: continue_sequence
+    alternatives:
+      - snooze
+      - terminate
+  repeated_failures:
+    primary: custom
+    alternatives:
+      - terminate
+      - snooze
+
+# UI hints for building the resolution interface
+ui:
+  show_lead_context: true
+  show_email_history: true
+  show_escalation_reason: true
+  action_display: "radio"  # radio, dropdown, or cards
+  notes_placeholder: "Add context for your decision..."

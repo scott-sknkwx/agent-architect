@@ -1,0 +1,193 @@
+# Platform Campaign Template
+# Default settings for all campaigns across Kringle
+# Organizations and personas can override any field
+#
+# Inheritance: platform → organization → persona → lead (frozen snapshot)
+
+version: "1.0"
+
+metadata:
+  name: "Platform Default Campaign Template"
+  description: "Default timing, approval, and phase settings for Kringle campaigns"
+  created_at: "2026-01-01T00:00:00Z"
+  updated_at: "2026-01-28T00:00:00Z"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# TIMING SETTINGS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+timing:
+  # Default wait period between emails
+  default_wait: "24h"
+
+  # Phase-specific timing overrides
+  reach_out:
+    wait_after_initial: "48h"        # Wait before sending followup
+    max_wait_for_response: "72h"     # Before timing out the phase
+
+  eex:
+    wait_between_steps: "48h"        # Default EEX inter-email wait
+    # Per-step waits are defined in each persona's eex_meta.yaml
+
+  post_eex:
+    wait_after_initial: "48h"        # Wait before sending followup
+    max_wait_for_response: "72h"     # Before timing out the phase
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# APPROVAL SETTINGS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+approval:
+  # Which emails require human approval
+  required_for:
+    - initial_outreach
+    - reach_out_followup
+    - eex_1                          # First EEX email
+    - post_eex_initial
+    - post_eex_followup
+    - reply                          # Replies always need approval
+
+  # EEX emails after the first can be auto-approved
+  auto_approve:
+    - eex_2
+    - eex_3
+    - eex_4
+    - eex_5
+
+  # Reminder settings
+  reminder_interval: "4h"            # How often to remind approver
+  max_reminders: 6                   # Before escalating
+  escalate_after: "24h"              # Max time before escalation
+
+  # Rejection handling
+  max_rejections: 3                  # Before escalating to platform admin
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PHASE SETTINGS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+phases:
+  reach_out:
+    enabled: true
+    emails:
+      - type: initial_outreach
+        guidance: "gift_offer.md"
+        wait_after: "48h"
+      - type: reach_out_followup
+        guidance: "gift_offer_followup.md"
+        wait_after: "72h"            # Max wait for phase timeout
+
+  eex:
+    enabled: true
+    # Steps defined per-persona in eex_meta.yaml
+    default_steps: 5
+    interruptible: true              # Can be paused on response
+    skip_on_meeting_request: true    # Jump to outcome if they want to meet
+
+  post_eex:
+    enabled: true
+    emails:
+      - type: post_eex_initial
+        guidance: "conversion.md"
+        wait_after: "48h"
+      - type: post_eex_followup
+        guidance: "conversion_followup.md"
+        wait_after: "72h"            # Max wait for phase timeout
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# RESPONSE HANDLING
+# ═══════════════════════════════════════════════════════════════════════════════
+
+response_handling:
+  # Classification to action mapping per phase
+  reach_out:
+    accept_gift: "start_eex"
+    request_meeting: "schedule_meeting"
+    delayed: "snooze"
+    opt_out: "terminate"
+    not_interested: "terminate"
+    question: "draft_reply"
+    continue: "wait"
+    unclear: "escalate"
+
+  eex:
+    accept_gift: "continue_eex"      # Already in EEX
+    request_meeting: "schedule_meeting"
+    delayed: "pause_eex"
+    opt_out: "terminate"
+    not_interested: "terminate"
+    question: "draft_reply"
+    continue: "continue_eex"
+    unclear: "escalate"
+
+  post_eex:
+    accept_gift: "continue"          # N/A for this phase
+    request_meeting: "schedule_meeting"
+    delayed: "snooze"
+    opt_out: "terminate"
+    not_interested: "terminate"
+    question: "draft_reply"
+    continue: "wait"
+    unclear: "escalate"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# TERMINATION REASONS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+termination:
+  reasons:
+    - code: "opt_out"
+      suppress_future: true          # Add to suppression list
+      terminal: true
+    - code: "not_interested"
+      suppress_future: false
+      terminal: true
+    - code: "bounced"
+      suppress_future: true
+      terminal: true
+    - code: "complained"
+      suppress_future: true
+      terminal: true
+    - code: "timeout"
+      suppress_future: false
+      terminal: true
+    - code: "human_rejected"
+      suppress_future: false
+      terminal: true
+    - code: "enrichment_failed"
+      suppress_future: false
+      terminal: true
+    - code: "escalated_unresolved"
+      suppress_future: false
+      terminal: true
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# SNOOZE SETTINGS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+snooze:
+  # Default snooze duration if not specified
+  default_duration: "14d"
+
+  # Maximum snooze duration
+  max_duration: "90d"
+
+  # Minimum snooze duration
+  min_duration: "3d"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# EMAIL SETTINGS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+email:
+  # Sender information
+  from_name: "Alex"                  # Can be overridden per org
+  from_domain: "kringle.com"         # Replaced by org domain
+
+  # Tracking
+  track_opens: true
+  track_clicks: true
+
+  # Limits
+  max_body_words: 200
+  max_subject_length: 60

@@ -1,0 +1,100 @@
+# Persona Filter Criteria
+# Technical Decision Makers
+# Used by agent to match leads to this persona
+
+persona:
+  id: "00000000-0000-0000-0002-000000000001"
+  name: "Technical Decision Makers"
+  description: "CTOs, VPs of Engineering, Technical Founders at startups and scale-ups"
+
+matching_criteria:
+  titles:
+    include:
+      - "CTO"
+      - "Chief Technology Officer"
+      - "VP of Engineering"
+      - "VP Engineering"
+      - "Vice President of Engineering"
+      - "Head of Engineering"
+      - "Director of Engineering"
+      - "Technical Founder"
+      - "Co-founder & CTO"
+      - "Engineering Lead"
+    exclude:
+      - "Intern"
+      - "Junior"
+      - "Associate"
+      - "Recruiter"
+      - "Sales"
+
+  seniority:
+    include:
+      - "C-Level"
+      - "VP"
+      - "Director"
+      - "Founder"
+    exclude:
+      - "Entry"
+      - "Individual Contributor"
+
+  industries:
+    include:
+      - "SaaS"
+      - "Software"
+      - "Technology"
+      - "FinTech"
+      - "HealthTech"
+      - "B2B"
+      - "Enterprise Software"
+      - "Developer Tools"
+      - "Infrastructure"
+    exclude:
+      - "Government"
+      - "Non-profit"
+      - "Education"
+
+  company_size:
+    min_employees: 20
+    max_employees: 500
+    ideal_range: "50-200 employees"
+
+  company_stage:
+    include:
+      - "Seed"
+      - "Series A"
+      - "Series B"
+      - "Series C"
+      - "Growth Stage"
+    exclude:
+      - "Pre-seed"
+      - "Public"
+      - "Enterprise (1000+)"
+
+  geography:
+    include:
+      - "United States"
+      - "Canada"
+      - "United Kingdom"
+    exclude: []
+
+scoring_guidance:
+  strong_signals:
+    - "Exact title match: CTO, VP of Engineering, Head of Engineering"
+    - "SaaS or B2B software company in 50-200 employee range"
+    - "Series A or B funding stage"
+    - "Technical founder with engineering background"
+  moderate_signals:
+    - "Adjacent title: Director of Engineering, Engineering Manager"
+    - "Company slightly outside ideal size (20-50 or 200-500)"
+    - "Related industry: FinTech, HealthTech, Developer Tools"
+  weak_signals:
+    - "Generic 'Engineering' in title without seniority"
+    - "Company in adjacent vertical"
+    - "Geography outside primary markets"
+  disqualifying_signals:
+    - "Already a Kringle customer"
+    - "Direct competitor company"
+    - "Non-technical role despite technical company"
+    - "Company under 20 or over 500 employees"
+
+confidence_threshold: 0.65

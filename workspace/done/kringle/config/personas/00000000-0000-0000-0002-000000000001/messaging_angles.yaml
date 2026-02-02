@@ -1,0 +1,74 @@
+# Persona Messaging Angles
+# Technical Decision Makers
+# How to talk to this persona - tone, framing, and language
+
+persona_id: "00000000-0000-0000-0002-000000000001"
+
+communication_style:
+  preferred_tone: "Peer-to-peer, practitioner to practitioner"
+  formality_level: 2                    # 1-5 scale
+  technical_depth: "medium"             # high | medium | low
+  decision_style: "Data-driven but appreciates pattern recognition"
+
+framing:
+  we_are: "Practitioners who've solved this problem across 40+ companies"
+  we_are_not: "Consultants selling methodology or vendors pushing demos"
+  our_relationship: "Helpful peer sharing what we've seen work"
+  their_challenge: "You're leaving pipeline on the table from traffic you already have"
+  our_solution: "Identify anonymous visitors and engage them before they go cold"
+
+language:
+  words_that_resonate:
+    - "pipeline"
+    - "anonymous traffic"
+    - "first-party"
+    - "signal"
+    - "patterns"
+    - "what actually works"
+    - "we've seen"
+  words_to_avoid:
+    - "synergy"
+    - "leverage"
+    - "holistic"
+    - "best-in-class"
+    - "game-changer"
+    - "revolutionary"
+    - "AI-powered" (unless specifically relevant)
+
+value_props_by_priority:
+  - prop: "Identify anonymous website visitors"
+    framing: "Know who's researching you before they fill out a form"
+  - prop: "Personalized engagement at scale"
+    framing: "Each visitor gets relevant outreach, not spray-and-pray"
+  - prop: "Pipeline from existing traffic"
+    framing: "Turn the traffic you already have into conversations"
+
+proof_points:
+  most_compelling:
+    - "Patterns from 40+ B2B companies"
+    - "Works with your existing traffic - no new spend required"
+  social_proof:
+    - "Used by growth teams from seed to Series C"
+    - "Average 3x improvement in visitor-to-lead conversion"
+
+hooks_that_work:
+  fit_signal_lead:
+    when_to_use: "When you have specific content they posted about pipeline or demand gen"
+    example: "Your post about the MQL quality problem hit close to home—we've been seeing that pattern a lot."
+  pattern_recognition:
+    when_to_use: "Cold outreach to technical leader at a funded startup"
+    example: "Post-Series B is when most teams realize their website traffic isn't converting. Sound familiar?"
+  shared_context:
+    when_to_use: "Mutual connection intro or met at event"
+    example: "Sarah mentioned you're rethinking demand gen—thought this might be relevant."
+
+subject_lines_that_work:
+  - "that pipeline post"
+  - "re: anonymous traffic"
+  - "visitor → lead?"
+  - "post-Series B pipeline"
+
+subject_lines_to_avoid:
+  - "Quick question about your demand gen strategy"
+  - "Kringle can help with lead generation"
+  - "15 minutes this week?"

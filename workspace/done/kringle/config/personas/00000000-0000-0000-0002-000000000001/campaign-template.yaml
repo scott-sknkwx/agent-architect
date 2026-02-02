@@ -1,0 +1,28 @@
+# Persona Campaign Template
+#
+# Technical Decision Makers (CTOs, VPs of Engineering, Technical Founders)
+# Inherited from org template.
+#
+# This persona uses org defaults for most values.
+# Persona-specific overrides can be added here.
+
+version: "1.0"
+inherit_from: "org:00000000-0000-0000-0001-000000000001"
+
+metadata:
+  name: "Technical Decision Makers Campaign"
+  description: "Campaign template for technical decision makers. CTOs, VPs of Engineering, Technical Founders at startups."
+  created_at: "2026-01-27T00:00:00Z"
+  updated_at: "2026-01-27T00:00:00Z"
+
+# This persona uses org defaults for phases, timing, and approval settings.
+# To customize for technical personas, add overrides here. Examples:
+#
+# timing:
+#   default_wait: "24h"  # Technical folks often respond quickly
+#
+# phases:
+#   gift_delivery:
+#     emails:
+#       - type: eex_1
+#         wait_after: "24h"  # Send EEX content frequently

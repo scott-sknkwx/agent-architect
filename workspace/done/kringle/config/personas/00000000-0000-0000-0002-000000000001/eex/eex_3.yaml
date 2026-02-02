@@ -1,0 +1,45 @@
+# EEX Email 3
+# The Visitor-to-Lead Gap
+# Deepens understanding of root causes
+
+email_number: 3
+send_delay_days: 2
+
+content:
+  subject: "The gap where pipeline dies"
+
+  body: |
+    {first_name},
+
+    Let's say you solve the identification problem. You now know that Sarah Chen, VP of Engineering at Acme Corp, visited your pricing page yesterday.
+
+    What happens next?
+
+    In most companies: nothing useful.
+
+    The data sits in a dashboard. Maybe someone exports it to a spreadsheet. An SDR might add them to a sequence—three days later, with a generic email.
+
+    By then, Sarah's moved on. She's talked to two competitors. The moment is gone.
+
+    This is the visitor-to-lead gap. The time between "we know who visited" and "we're having a real conversation."
+
+    Most companies measure traffic. They measure MQLs. They measure opportunities.
+
+    But almost nobody measures this gap. And it's where pipeline goes to die.
+
+    The companies we work with have shrunk this gap from days to hours. Some to minutes.
+
+    Tomorrow: how to personalize outreach at scale without it feeling like spam.
+
+    —Alex
+
+  cta:
+    type: "implicit"
+    text: "Tomorrow: how to personalize outreach at scale without it feeling like spam."
+
+metadata:
+  topic: "The Visitor-to-Lead Gap"
+  key_insight: "The time between identification and conversation is where most pipeline dies"
+  belief_shift: "Speed of follow-up matters more than volume of outreach"
+  word_count: 185
+  tone: "Concrete, example-driven, building urgency"

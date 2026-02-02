@@ -1,0 +1,45 @@
+# EEX Email 5
+# The Compound Effect
+# Bridge to engagement - CTA that feels earned
+
+email_number: 5
+send_delay_days: 2
+
+content:
+  subject: "The compound effect"
+
+  body: |
+    {first_name},
+
+    Here's what happens when you get this right:
+
+    Month 1: You start identifying visitors. Maybe 50 a week become known leads instead of anonymous traffic.
+
+    Month 2: You've refined your messaging. Engagement improves. You're converting more of those 50.
+
+    Month 3: You have data. You know which pages signal buying intent. Which messages work for which personas. The system gets smarter.
+
+    Month 6: Pipeline from your existing traffic has doubled. Without spending more on ads. Without hiring more SDRs.
+
+    This is the compound effect. Every month builds on the last. The capability improves. The pipeline grows.
+
+    This isn't a campaign with an end date. It's infrastructure that keeps producing.
+
+    That's what we've helped 40+ B2B companies build.
+
+    If any of this resonated—or if you're curious what this could look like for {company}—I'm happy to dig into specifics.
+
+    Just reply and we'll find a time.
+
+    —Alex
+
+  cta:
+    type: "direct"
+    text: "Just reply and we'll find a time."
+
+metadata:
+  topic: "The Compound Effect"
+  key_insight: "Visitor identification + personalization compounds over time"
+  belief_shift: "This is infrastructure, not a campaign"
+  word_count: 190
+  tone: "Visionary but grounded, earned ask, low pressure"

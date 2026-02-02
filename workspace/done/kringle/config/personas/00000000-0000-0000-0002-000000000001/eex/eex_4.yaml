@@ -1,0 +1,45 @@
+# EEX Email 4
+# Personalization That Scales
+# Presents the solution category (not the product)
+
+email_number: 4
+send_delay_days: 2
+
+content:
+  subject: "Personalization that actually scales"
+
+  body: |
+    {first_name},
+
+    Here's the outbound dilemma:
+
+    Spray-and-pray doesn't work anymore. Reply rates are dropping. Spam filters are smarter. Buyers are exhausted.
+
+    But true 1:1 personalization doesn't scale. You can't have an SDR spend 20 minutes researching every visitor.
+
+    So what's the answer?
+
+    Context-aware automation.
+
+    It works like this: when someone visits your site, you don't just capture their identity. You capture their *context*. What pages they viewed. What content they engaged with. What their company is doing.
+
+    Then you use that context to personalize automatically. Not "Hi {first_name}" personalization. Real, relevant personalization.
+
+    "Saw Acme just raised Series B—congrats. Usually that's when engineering teams feel pressure to scale fast."
+
+    That's specific. That's relevant. And it can be generated in seconds, not minutes.
+
+    Tomorrow: the compound effect—why this isn't a campaign, it's a capability.
+
+    —Alex
+
+  cta:
+    type: "implicit"
+    text: "Tomorrow: the compound effect—why this isn't a campaign, it's a capability."
+
+metadata:
+  topic: "Personalization That Scales"
+  key_insight: "Context-aware automation enables real personalization at scale"
+  belief_shift: "You can have both scale and genuine personalization"
+  word_count: 180
+  tone: "Practical, solution-oriented, concrete examples"

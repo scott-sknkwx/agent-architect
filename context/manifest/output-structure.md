@@ -164,6 +164,107 @@ Agent Factory reads the workspace files and generates a deployable project in `p
 
 ---
 
+## Generated Project Structure for Agents
+
+When Agent Factory scaffolds a project, agents become executable Inngest functions. This section documents the runtime code structure.
+
+### Project Directory Layout
+
+```
+projects/{product-name}/
+├── src/
+│   └── inngest/
+│       ├── client.ts              # Inngest client configuration
+│       ├── agents/                # Agent runner functions
+│       │   ├── persona-matcher.ts
+│       │   ├── email-drafter.ts
+│       │   └── response-triager.ts
+│       └── functions/             # Non-agent functions
+│           ├── send-email.ts
+│           └── check-timeouts.ts
+│
+├── lib/
+│   ├── workspace.ts               # Workspace hydration utilities
+│   ├── supabase.ts                # Database client
+│   └── inngest.ts                 # Event type definitions
+│
+├── agents/                        # Agent CLAUDE.md files (from workspace)
+│   ├── persona-matcher.md
+│   ├── email-drafter.md
+│   └── response-triager.md
+│
+├── schemas/                       # Zod output schemas (from workspace)
+│   ├── persona-matcher-output.ts
+│   ├── email-drafter-output.ts
+│   └── response-triager-output.ts
+│
+├── config/                        # Static config (from workspace)
+├── templates/                     # Handlebars templates (from workspace)
+└── docs/                          # Documentation (from workspace)
+```
+
+### Agent Runner Location
+
+Each agent in the manifest generates a file at `src/inngest/agents/{agent-name}.ts`:
+
+```
+Manifest                           Generated Project
+────────                           ─────────────────
+agents:
+  - name: persona-matcher    →     src/inngest/agents/persona-matcher.ts
+  - name: email-drafter      →     src/inngest/agents/email-drafter.ts
+  - name: response-triager   →     src/inngest/agents/response-triager.ts
+```
+
+### Workspace Utilities
+
+The `lib/workspace.ts` module provides:
+
+| Function | Purpose |
+|----------|---------|
+| `hydrateWorkspace(options)` | Build temp directory with CLAUDE.md + context |
+| `cleanupWorkspace(path)` | Remove temp directory after agent completes |
+
+See [Agent Runtime Pattern](../patterns/agent-runtime-pattern.md) for implementation details.
+
+### Workspace vs Generated Project Paths
+
+Understanding where files live at each stage:
+
+| File Type | Workspace Path | Generated Project Path |
+|-----------|----------------|------------------------|
+| Agent instructions | `agents/{name}.md` | `agents/{name}.md` |
+| Output schemas | `schemas/{name}-output.ts` | `schemas/{name}-output.ts` |
+| Agent runners | N/A (not generated) | `src/inngest/agents/{name}.ts` |
+| Workspace utils | N/A (not generated) | `lib/workspace.ts` |
+| Static config | `config/{source}/` | `config/{source}/` |
+| Templates | `templates/*.hbs` | `templates/*.hbs` |
+
+**Key distinction:**
+- **Workspace** = Design artifacts created by Agent Architect
+- **Generated Project** = Runnable TypeScript created by Agent Factory
+- Agent runners and workspace utilities only exist in the generated project
+
+### Runtime Workspace Structure
+
+At runtime, `hydrateWorkspace()` creates a temporary directory:
+
+```
+/tmp/agent-workspace-{uuid}/
+├── .claude/
+│   └── CLAUDE.md           # Copied from agents/{name}.md
+├── lead.md                  # Hydrated from database via template
+├── personas/                # Multiple files from DB query
+│   ├── {id-1}.md
+│   └── {id-2}.md
+└── config/                  # Copied from static sources
+    └── personas/
+```
+
+This workspace is passed as `cwd` to the SDK `query()` function, then cleaned up after execution.
+
+---
+
 ## Validation Checklist
 
 Before running Agent Factory, verify:
