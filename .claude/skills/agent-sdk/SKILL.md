@@ -5,7 +5,7 @@ description: Reference for building with the Claude Agent SDK. Use when question
 
 # Claude Agent SDK Reference
 
-When answering questions about building agents with the Claude Agent SDK, ALWAYS consult the documentation in `context/agent-sdk-docs/`.
+When answering questions about building agents with the Claude Agent SDK, ALWAYS consult the documentation in `.claude/context/agent-sdk-docs/`.
 
 ## Quick Lookup
 
@@ -28,7 +28,7 @@ When answering questions about building agents with the Claude Agent SDK, ALWAYS
 
 ## Before Answering Agent SDK Questions
 
-1. **Read the index**: `context/agent-sdk-docs/index.md` has a complete topic → document mapping
+1. **Read the index**: `.claude/context/agent-sdk-docs/index.md` has a complete topic → document mapping
 2. **Read the relevant doc**: Don't guess—actually read the documentation
 3. **Use exact types**: The TypeScript SDK doc has all type definitions
 4. **Verify tool names**: Built-in tools are: Read, Write, Edit, Bash, Glob, Grep, WebSearch, WebFetch, Task, Skill, TodoWrite
@@ -109,9 +109,9 @@ Read both:
 |------|------|
 | Working code snippets | `code-examples.md` |
 | Common issues and fixes | `troubleshooting.md` |
-| Complete topic index | `context/agent-sdk-docs/index.md` |
+| Complete topic index | `.claude/context/agent-sdk-docs/index.md` |
 
 ## Full Documentation Index
 
 For the complete topic → document mapping with example questions, read:
-`context/agent-sdk-docs/index.md`
+`.claude/context/agent-sdk-docs/index.md`

@@ -80,10 +80,10 @@ Invoke with `/skill-name`. These encode specialized expertise and workflows:
 | Resource | Location |
 |----------|----------|
 | Agent Factory CLI | `../agent-factory/` |
-| **Agent SDK Documentation** | `./context/agent-sdk-docs/` — THE authoritative reference |
-| Manifest (schema, reference, examples) | `context/manifest/` |
-| Patterns | `context/patterns/` |
-| Tech docs | `./context/tech-docs/` |
+| **Agent SDK Documentation** | `.claude/context/agent-sdk-docs/` — THE authoritative reference |
+| Manifest (schema, reference, examples) | `.claude/context/manifest/` |
+| Patterns | `.claude/context/patterns/` |
+| Tech docs | `.claude/context/tech-docs/` |
 | Output | `./workspace/` |
 
 ### Architecture: The Universal Loop
@@ -394,6 +394,28 @@ Generate:
 
    See `plans/function-capability/spec-format.md` for full template.
 
+8. **Context copy** - Copy reference materials to generated project:
+   - Copy `.claude/context/` to `workspace/{product}/.claude/context/`
+   - All subdirectories: agent-sdk-docs, manifest, patterns, tech-docs
+   - This provides generated projects with complete reference documentation
+
+   **Generated CLAUDE.md Reference Section:**
+
+   Include this section in generated project's `.claude/CLAUDE.md`:
+
+   ```markdown
+   ## Reference Materials
+
+   This project includes reference documentation for extending and maintaining the system.
+
+   | Topic | Location |
+   |-------|----------|
+   | Agent SDK (tools, permissions, hooks) | `.claude/context/agent-sdk-docs/` |
+   | Design patterns (agent vs function, approvals) | `.claude/context/patterns/` |
+   | Integration documentation | `.claude/context/tech-docs/` |
+   | Manifest schema and examples | `.claude/context/manifest/` |
+   ```
+
 Write files to `workspace/` directory.
 
 ### Phase 5: Scaffold
@@ -432,9 +454,9 @@ User triggers for process phases:
 
 | Document | Purpose |
 |----------|---------|
-| `context/manifest/output-structure.md` | Expected output directory tree and file purposes |
-| `context/manifest/reference.md` | Contract definitions, access control, function integrations |
-| `context/manifest/examples/sample-product/` | Canonical example workspace with annotated files |
+| `.claude/context/manifest/output-structure.md` | Expected output directory tree and file purposes |
+| `.claude/context/manifest/reference.md` | Contract definitions, access control, function integrations |
+| `.claude/context/manifest/examples/sample-product/` | Canonical example workspace with annotated files |
 | `plans/function-capability/README.md` | Function spec approach overview |
 | `plans/function-capability/spec-format.md` | Function spec template and sections |
 
@@ -442,15 +464,15 @@ User triggers for process phases:
 
 | Pattern | File | When to Use |
 |---------|------|-------------|
-| **Agent Boundaries** | `context/patterns/agent-boundaries.md` | Single Responsibility Test, common agent types, boundary rules |
-| **Bundle Approval** | `context/patterns/bundle-approval-pattern.md` | Multiple items need human review; avoid approval fatigue |
-| **CLAUDE.md Patterns** | `context/patterns/claude-md-patterns.md` | Template structure for agent instructions in Phase 4 |
-| **Content Sourcing** | `context/patterns/content-sourcing-pattern.md` | Distinguishing agent-drafted vs template-sourced content |
-| **Database Patterns** | `context/patterns/database-patterns.md` | Column patterns, tenancy, state machines, relationships |
-| **Event Design** | `context/patterns/event-design-patterns.md` | Naming conventions (noun.verb), payload design, granularity |
-| **Executor Model** | `context/patterns/executor-model-pattern.md` | Understanding who executes each step (🤖/👤/⚙️) |
-| **Flow Patterns** | `context/patterns/flow-patterns.md` | Common flow patterns, executor classification heuristics |
-| **Access Control** | `context/manifest/reference.md#access-control-pattern` | Database RLS policies, actor definitions |
+| **Agent Boundaries** | `.claude/context/patterns/agent-boundaries.md` | Single Responsibility Test, common agent types, boundary rules |
+| **Bundle Approval** | `.claude/context/patterns/bundle-approval-pattern.md` | Multiple items need human review; avoid approval fatigue |
+| **CLAUDE.md Patterns** | `.claude/context/patterns/claude-md-patterns.md` | Template structure for agent instructions in Phase 4 |
+| **Content Sourcing** | `.claude/context/patterns/content-sourcing-pattern.md` | Distinguishing agent-drafted vs template-sourced content |
+| **Database Patterns** | `.claude/context/patterns/database-patterns.md` | Column patterns, tenancy, state machines, relationships |
+| **Event Design** | `.claude/context/patterns/event-design-patterns.md` | Naming conventions (noun.verb), payload design, granularity |
+| **Executor Model** | `.claude/context/patterns/executor-model-pattern.md` | Understanding who executes each step (🤖/👤/⚙️) |
+| **Flow Patterns** | `.claude/context/patterns/flow-patterns.md` | Common flow patterns, executor classification heuristics |
+| **Access Control** | `.claude/context/manifest/reference.md#access-control-pattern` | Database RLS policies, actor definitions |
 
 **Quick Pattern Reference:**
 
@@ -472,7 +494,7 @@ User triggers for process phases:
 
 ### Technology Reference
 
-Consult `./context/tech-docs/` when designing integrations. Local docs provide design guidance; web search official docs for current API signatures.
+Consult `.claude/context/tech-docs/` when designing integrations. Local docs provide design guidance; web search official docs for current API signatures.
 
 | Tech | Purpose | Local Doc | Official Docs |
 |------|---------|-----------|---------------|
