@@ -10,6 +10,9 @@ node_modules/
 .DS_Store
 Thumbs.db
 
+# Human scratch files
+.human/
+
 # IDE
 .idea/
 .vscode/
