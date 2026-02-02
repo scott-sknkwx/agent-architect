@@ -13,6 +13,9 @@ Thumbs.db
 # Human scratch files
 .human/
 
+# Claude Code local config
+.claude/
+
 # IDE
 .idea/
 .vscode/
