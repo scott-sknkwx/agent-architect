@@ -383,7 +383,7 @@ User triggers for process phases:
 
 | Document | Purpose |
 |----------|---------|
-| `docs/workspace-structure.md` | Expected workspace directory tree and file purposes |
+| `context/manifest/output-structure.md` | Expected output directory tree and file purposes |
 | `context/manifest/reference.md` | Contract definitions, access control, function integrations |
 | `context/manifest/examples/sample-product/` | Canonical example workspace with annotated files |
 | `plans/function-capability/README.md` | Function spec approach overview |
