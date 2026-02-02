@@ -63,6 +63,10 @@ inngest.createFunction(
 - Step output max: 4MB
 - Function timeout: 2 hours (default)
 
+## Related
+
+- **`webhook-routing.md`**: Inngest-first webhook architecture—route webhooks directly to Inngest before any processing
+
 ## TODO: Add More
 
 - [ ] Rate limiting patterns

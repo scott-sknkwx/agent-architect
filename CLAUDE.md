@@ -27,6 +27,16 @@ A separate CLI tool at `../agent-factory/`. Takes a `manifest.yaml` and produces
      DESIGN                    BUILD                    RUN
 ```
 
+## Working ON Agent Architect
+
+For developing agent-architect itself (not building agent systems with it), see `plans/index.md`.
+
+**Flow:** `feature-description.md` → `implementation-order.md` → execute → complete
+
+Plans track features, refactors, and improvements to this tool.
+
+---
+
 ## Constraints
 
 - Ask before assuming
