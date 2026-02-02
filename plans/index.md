@@ -23,10 +23,7 @@ feature-description.md → implementation-order.md → execute → complete
 
 | Name | Description | Status |
 |------|-------------|--------|
-| agent-output-schema | Create missing Zod output schemas for Kringle agents (persona-matcher, email-drafter, response-triager, escalation-handler) | testing |
-| integration-schema | Add typed integration schemas to manifest (resend, hookdeck, clay, firecrawl, etc.) with validation | testing |
 | manifest-coverage | Identify gaps between discovery process and manifest schema requirements; proposes THE LOOP framework | discovery |
-| nonagentic | Generate non-agentic function scaffolds (simple, fan-in, cron, routing patterns) from manifest declarations | testing |
 
 
 ### Status Key
@@ -47,7 +44,10 @@ Located in `zzz-complete/`. Kept for reference.
 
 | Name | Description | Completed |
 |------|-------------|-----------|
+| agent-output-schema | Create missing Zod output schemas for Kringle agents (persona-matcher, email-drafter, response-triager, escalation-handler) | 2026-02-02 |
 | claude-refactor | Restructure CLAUDE.md, extract /discovery skill, create workspace-structure and manifest-reference docs | 2025-02-01 |
 | function-capability | Enable Agent Architect to capture function implementation context during interviews and generate structured spec files | 2025-02-01 |
+| integration-schema | Add typed integration schemas to manifest (resend, hookdeck, clay, firecrawl, etc.) with validation | 2026-02-02 |
+| nonagentic | Generate non-agentic function scaffolds (simple, fan-in, cron, routing patterns) from manifest declarations | 2026-02-02 |
 | resend-schema | Add output schema validation to agent-factory templates, create agent output schemas for Kringle | 2025-02-01 |
 | schema-evolution | Add object types, inngest-first webhooks, and webhook discriminated union to manifest schema | 2026-01-31 |
