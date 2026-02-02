@@ -2,7 +2,7 @@
 
 This document provides reference material for the `manifest.yaml` schema, including contract definitions, access control patterns, and function integration rules.
 
-For the schema source of truth, see: `context/manifest-schema.ts`
+For the schema source of truth, see: `schema.ts` (in this directory)
 
 ---
 

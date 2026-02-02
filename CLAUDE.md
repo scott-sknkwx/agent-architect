@@ -71,8 +71,7 @@ Invoke with `/skill-name`. These encode specialized expertise and workflows:
 |----------|----------|
 | Agent Factory CLI | `../agent-factory/` |
 | **Agent SDK Documentation** | `./context/agent-sdk-docs/` — THE authoritative reference |
-| Manifest schema | `context/manifest-schema.ts` |
-| Examples | `context/examples/` |
+| Manifest (schema, reference, examples) | `context/manifest/` |
 | Patterns | `context/patterns/` |
 | Tech docs | `./context/tech-docs/` |
 | Output | `./workspace/` |
@@ -249,7 +248,7 @@ Setup
 
 **Key insight:** The diagram IS the design. The manifest encodes the diagram.
 
-See `docs/discovery-retrospective.md` for full methodology.
+See `.claude/skills/discovery/retrospective.md` for full methodology.
 
 ### Phase 3: Deep Dive
 
@@ -385,9 +384,8 @@ User triggers for process phases:
 | Document | Purpose |
 |----------|---------|
 | `docs/workspace-structure.md` | Expected workspace directory tree and file purposes |
-| `docs/manifest-reference.md` | Contract definitions, access control, function integrations |
-| `docs/discovery-retrospective.md` | How to run effective discovery sessions |
-| `context/examples/sample-product/` | Canonical example workspace with annotated files |
+| `context/manifest/reference.md` | Contract definitions, access control, function integrations |
+| `context/manifest/examples/sample-product/` | Canonical example workspace with annotated files |
 | `plans/function-capability/README.md` | Function spec approach overview |
 | `plans/function-capability/spec-format.md` | Function spec template and sections |
 
@@ -398,7 +396,7 @@ User triggers for process phases:
 | **Bundle Approval** | `context/patterns/bundle-approval-pattern.md` | Multiple items need human review; avoid approval fatigue |
 | **Content Sourcing** | `context/patterns/content-sourcing-pattern.md` | Distinguishing agent-drafted vs template-sourced content |
 | **Executor Model** | `context/patterns/executor-model-pattern.md` | Understanding who executes each step (🤖/👤/⚙️) |
-| **Access Control** | `docs/manifest-reference.md#access-control-pattern` | Database RLS policies, actor definitions |
+| **Access Control** | `context/manifest/reference.md#access-control-pattern` | Database RLS policies, actor definitions |
 
 **Quick Pattern Reference:**
 
