@@ -1,0 +1,379 @@
+// inngest/functions/{{name}}.ts
+// STATUS: DRAFT - Requires implementation
+// GENERATED: {{generatedAt}}
+// PATTERN: {{pattern}}
+
+import { inngest } from "../client.js";
+import { db } from "../../lib/database.js";
+import { logger } from "../../lib/logger.js";
+
+/**
+ * FUNCTION: {{name}}
+ * DESCRIPTION: {{description}}
+ * PATTERN: {{pattern}}
+ *
+{{#if (eq pattern "simple")}}
+ * TRIGGER:
+ *   - Event: {{trigger.event}}
+{{/if}}
+{{#if (eq pattern "fan-in")}}
+ * TRIGGER:
+ *   - Primary: {{trigger.primary}}
+ *   - Waits for:
+{{#each trigger.wait_for}}
+ *       - {{this}}
+{{/each}}
+ *   - Correlation: {{trigger.correlation_key}}
+{{#if trigger.timeout}}
+ *   - Timeout: {{trigger.timeout}}
+{{/if}}
+{{/if}}
+{{#if (eq pattern "fan-out")}}
+ * TRIGGER:
+ *   - Event: {{trigger.event}}
+ *   - Fans out to:
+{{#each trigger.fan_out_to}}
+ *       - {{this}}
+{{/each}}
+{{/if}}
+{{#if (eq pattern "cron")}}
+ * TRIGGER:
+ *   - Cron: {{trigger.cron}}
+ *   - Schedule: {{trigger.schedule}}
+{{/if}}
+{{#if (eq pattern "routing")}}
+ * TRIGGER:
+ *   - Event: {{trigger.event}}
+ *   - Routes on: {{trigger.route_on}}
+ *   - Routes:
+{{#each trigger.routes}}
+ *       {{@key}} → {{this.emit}}{{#if this.then}} (then: {{this.then}}){{/if}}
+{{/each}}
+{{#if trigger.default_route}}
+ *   - Default: {{trigger.default_route}}
+{{/if}}
+{{/if}}
+ *
+{{#if actions}}
+ * EXPECTED ACTIONS:
+{{#each actions}}
+ *   - {{this}}
+{{/each}}
+ *
+{{/if}}
+{{#if emits}}
+ * EXPECTED EMITS:
+{{#each emits}}
+ *   - {{this}}
+{{/each}}
+ *
+{{/if}}
+{{#if integrations}}
+ * INTEGRATIONS:
+{{#each integrations}}
+ *   - {{this}}
+{{/each}}
+ *
+{{/if}}
+{{#if context}}
+ * CONTEXT:
+{{#each (splitLines context)}}
+ *   {{this}}
+{{/each}}
+ *
+{{/if}}
+{{#if open_questions}}
+ * OPEN QUESTIONS:
+{{#each open_questions}}
+ *   - [ ] {{this}}
+{{/each}}
+{{/if}}
+ */
+
+{{#if (eq pattern "simple")}}
+export const {{camelCase name}}Function = inngest.createFunction(
+  { id: "{{name}}" },
+  { event: "{{namespace}}/{{trigger.event}}" },
+
+  async ({ event, step }) => {
+    const traceId = event.data.trace_id ?? crypto.randomUUID();
+    const leadId = event.data.lead_id;
+
+    logger.info("function.started", {
+      traceId,
+      function: "{{name}}",
+      leadId,
+    });
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // DRAFT: Implement actions
+    // ═══════════════════════════════════════════════════════════════════════
+{{#each actions}}
+    //
+    // TODO: {{this}}
+    //
+{{/each}}
+    // ═══════════════════════════════════════════════════════════════════════
+
+{{#if emits}}
+    // ═══════════════════════════════════════════════════════════════════════
+    // DRAFT: Emit events
+    // ═══════════════════════════════════════════════════════════════════════
+{{#each emits}}
+    //
+    // await step.sendEvent("emit-{{kebabCase this}}", {
+    //   name: "{{../namespace}}/{{this}}",
+    //   data: { lead_id: leadId, trace_id: traceId }
+    // });
+{{/each}}
+    // ═══════════════════════════════════════════════════════════════════════
+
+{{/if}}
+    throw new Error("DRAFT: {{name}} not yet implemented");
+  }
+);
+{{/if}}
+{{#if (eq pattern "fan-in")}}
+export const {{camelCase name}}Function = inngest.createFunction(
+  { id: "{{name}}" },
+  { event: "{{namespace}}/{{trigger.primary}}" },
+
+  async ({ event, step }) => {
+    const traceId = event.data.trace_id ?? crypto.randomUUID();
+    const leadId = event.data.lead_id;
+
+    logger.info("function.started", {
+      traceId,
+      function: "{{name}}",
+      pattern: "fan-in",
+      leadId,
+    });
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // DRAFT: Wait for additional events
+    // ═══════════════════════════════════════════════════════════════════════
+{{#each trigger.wait_for}}
+    //
+    // const {{camelCase this}}Data = await step.waitForEvent("wait-{{kebabCase this}}", {
+    //   event: "{{../namespace}}/{{this}}",
+    //   match: "data.{{../trigger.correlation_key}}",
+    //   timeout: "{{../trigger.timeout}}",
+    // });
+{{/each}}
+    // ═══════════════════════════════════════════════════════════════════════
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // DRAFT: Merge data from all sources
+    // ═══════════════════════════════════════════════════════════════════════
+    //
+    // const primaryData = event.data;
+    // const mergedData = {
+    //   ...primaryData,
+    //   // ...additional fields from waited events
+    // };
+    // ═══════════════════════════════════════════════════════════════════════
+
+{{#if actions}}
+    // ═══════════════════════════════════════════════════════════════════════
+    // DRAFT: Implement actions
+    // ═══════════════════════════════════════════════════════════════════════
+{{#each actions}}
+    //
+    // TODO: {{this}}
+    //
+{{/each}}
+    // ═══════════════════════════════════════════════════════════════════════
+
+{{/if}}
+{{#if emits}}
+    // ═══════════════════════════════════════════════════════════════════════
+    // DRAFT: Emit events
+    // ═══════════════════════════════════════════════════════════════════════
+{{#each emits}}
+    //
+    // await step.sendEvent("emit-{{kebabCase this}}", {
+    //   name: "{{../namespace}}/{{this}}",
+    //   data: { lead_id: leadId, trace_id: traceId, ...mergedData }
+    // });
+{{/each}}
+    // ═══════════════════════════════════════════════════════════════════════
+
+{{/if}}
+    throw new Error("DRAFT: {{name}} not yet implemented");
+  }
+);
+{{/if}}
+{{#if (eq pattern "fan-out")}}
+export const {{camelCase name}}Function = inngest.createFunction(
+  { id: "{{name}}" },
+  { event: "{{namespace}}/{{trigger.event}}" },
+
+  async ({ event, step }) => {
+    const traceId = event.data.trace_id ?? crypto.randomUUID();
+    const leadId = event.data.lead_id;
+
+    logger.info("function.started", {
+      traceId,
+      function: "{{name}}",
+      pattern: "fan-out",
+      leadId,
+    });
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // DRAFT: Determine which paths to fan out to
+    // ═══════════════════════════════════════════════════════════════════════
+    //
+    // TODO: Add conditional logic to determine which events to emit
+    //
+{{#each trigger.fan_out_to}}
+    // const should{{pascalCase this}} = true; // TODO: Add condition
+{{/each}}
+    // ═══════════════════════════════════════════════════════════════════════
+
+{{#if actions}}
+    // ═══════════════════════════════════════════════════════════════════════
+    // DRAFT: Implement actions
+    // ═══════════════════════════════════════════════════════════════════════
+{{#each actions}}
+    //
+    // TODO: {{this}}
+    //
+{{/each}}
+    // ═══════════════════════════════════════════════════════════════════════
+
+{{/if}}
+    // ═══════════════════════════════════════════════════════════════════════
+    // DRAFT: Fan out - emit parallel events
+    // ═══════════════════════════════════════════════════════════════════════
+    //
+    // const eventsToSend = [];
+    //
+{{#each trigger.fan_out_to}}
+    // if (should{{pascalCase this}}) {
+    //   eventsToSend.push({
+    //     name: "{{../namespace}}/{{this}}",
+    //     data: { lead_id: leadId, trace_id: traceId }
+    //   });
+    // }
+{{/each}}
+    //
+    // await step.sendEvent("fan-out", eventsToSend);
+    // ═══════════════════════════════════════════════════════════════════════
+
+    throw new Error("DRAFT: {{name}} not yet implemented");
+  }
+);
+{{/if}}
+{{#if (eq pattern "cron")}}
+export const {{camelCase name}}Function = inngest.createFunction(
+  { id: "{{name}}" },
+  { cron: "{{trigger.schedule}}" },
+
+  async ({ step }) => {
+    const traceId = crypto.randomUUID();
+
+    logger.info("cron.started", {
+      traceId,
+      function: "{{name}}",
+    });
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // DRAFT: Query items to process
+    // ═══════════════════════════════════════════════════════════════════════
+    //
+    // const items = await step.run("query-items", async () => {
+    //   return db.from("TABLE_NAME")
+    //     .select("*")
+    //     // TODO: Add WHERE conditions
+    //     .limit(100);
+    // });
+    //
+    // logger.info("cron.queried", { traceId, count: items.length });
+    // ═══════════════════════════════════════════════════════════════════════
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // DRAFT: Process each item
+    // ═══════════════════════════════════════════════════════════════════════
+    //
+    // for (const item of items) {
+{{#each actions}}
+    //   // TODO: {{this}}
+{{/each}}
+    //
+{{#each emits}}
+    //   await step.sendEvent(`emit-{{kebabCase this}}-${item.id}`, {
+    //     name: "{{../namespace}}/{{this}}",
+    //     data: { ...item, trace_id: traceId }
+    //   });
+{{/each}}
+    // }
+    // ═══════════════════════════════════════════════════════════════════════
+
+    throw new Error("DRAFT: {{name}} not yet implemented");
+  }
+);
+{{/if}}
+{{#if (eq pattern "routing")}}
+export const {{camelCase name}}Function = inngest.createFunction(
+  { id: "{{name}}" },
+  { event: "{{namespace}}/{{trigger.event}}" },
+
+  async ({ event, step }) => {
+    const traceId = event.data.trace_id ?? crypto.randomUUID();
+    const leadId = event.data.lead_id;
+    const routeValue = event.data.{{trigger.route_on}};
+
+    logger.info("function.started", {
+      traceId,
+      function: "{{name}}",
+      pattern: "routing",
+      leadId,
+      routeValue,
+    });
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // DRAFT: Define routing table
+    // ═══════════════════════════════════════════════════════════════════════
+    //
+    // const ROUTES: Record<string, { emit: string; then?: string }> = {
+{{#each trigger.routes}}
+    //   "{{@key}}": { emit: "{{this.emit}}"{{#if this.then}}, then: "{{this.then}}"{{/if}} },
+{{/each}}
+    // };
+    //
+    // const route = ROUTES[routeValue] ?? { emit: "{{trigger.default_route}}" };
+    // ═══════════════════════════════════════════════════════════════════════
+
+{{#if actions}}
+    // ═══════════════════════════════════════════════════════════════════════
+    // DRAFT: Implement actions
+    // ═══════════════════════════════════════════════════════════════════════
+{{#each actions}}
+    //
+    // TODO: {{this}}
+    //
+{{/each}}
+    // ═══════════════════════════════════════════════════════════════════════
+
+{{/if}}
+    // ═══════════════════════════════════════════════════════════════════════
+    // DRAFT: Emit routed event
+    // ═══════════════════════════════════════════════════════════════════════
+    //
+    // await step.sendEvent("emit-routed", {
+    //   name: `{{namespace}}/${route.emit}`,
+    //   data: { lead_id: leadId, trace_id: traceId }
+    // });
+    //
+    // if (route.then) {
+    //   await step.sendEvent("emit-followup", {
+    //     name: `{{namespace}}/${route.then}`,
+    //     data: { lead_id: leadId, trace_id: traceId, reason: routeValue }
+    //   });
+    // }
+    // ═══════════════════════════════════════════════════════════════════════
+
+    throw new Error("DRAFT: {{name}} not yet implemented");
+  }
+);
+{{/if}}

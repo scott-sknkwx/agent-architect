@@ -1,0 +1,238 @@
+# Sample Product Manifest
+# This is a canonical example showing the expected structure of a manifest.yaml
+# Use this as a reference when generating manifests for new products.
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PRODUCT METADATA
+# ═══════════════════════════════════════════════════════════════════════════════
+
+product:
+  name: sample-product
+  description: "A minimal example product demonstrating manifest structure"
+  version: "0.1.0"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# INFRASTRUCTURE
+# Core platform configuration. These are always available to all agents/functions.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+infrastructure:
+  inngest:
+    app_id: "sample-product"
+    signing_key: "${INNGEST_SIGNING_KEY}"
+    event_key: "${INNGEST_EVENT_KEY}"
+  supabase:
+    project_ref: "sample"
+    url: "${SUPABASE_URL}"
+    anon_key: "${SUPABASE_ANON_KEY}"
+    service_key: "${SUPABASE_SERVICE_KEY}"
+  anthropic:
+    api_key: "${ANTHROPIC_API_KEY}"
+    default_model: "sonnet"
+  deployment:
+    platform: "vercel"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# STATE MACHINE
+# Defines valid entity states and transitions. Terminal states have no outgoing edges.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+state_machine:
+  initial: "received"
+  states:
+    - name: received
+      transitions_to: [processing]
+    - name: processing
+      transitions_to: [completed, failed]
+    - name: completed
+      transitions_to: []
+      terminal: true
+    - name: failed
+      transitions_to: []
+      terminal: true
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# EVENTS
+# The language agents speak. namespace/event.name format.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+events:
+  namespace: "sample"
+  definitions:
+    # Ingestion event - triggers processing
+    - name: item.received
+      description: "A new item has been received for processing"
+      payload:
+        item_id:
+          type: string
+          required: true
+          description: "Unique identifier for the item"
+        org_id:
+          type: string
+          required: true
+          description: "Organization that owns this item"
+        trace_id:
+          type: string
+          required: true
+          description: "End-to-end trace identifier"
+
+    # Processing complete event
+    - name: item.processed
+      description: "Item has been successfully processed"
+      payload:
+        item_id:
+          type: string
+          required: true
+        org_id:
+          type: string
+          required: true
+        result:
+          type: object
+          required: true
+          description: "Processing result data"
+        trace_id:
+          type: string
+          required: true
+
+    # Processing failed event
+    - name: item.failed
+      description: "Item processing has failed"
+      payload:
+        item_id:
+          type: string
+          required: true
+        org_id:
+          type: string
+          required: true
+        error:
+          type: string
+          required: true
+          description: "Error message describing the failure"
+        trace_id:
+          type: string
+          required: true
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# AGENTS
+# Each agent does ONE thing. Triggered by state, produces structured output.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+agents:
+  - name: processor
+    description: "Analyzes and processes incoming items"
+    triggers:
+      - event: item.received
+    emits:
+      - event: item.processed
+      - event: item.failed
+    contract:
+      # When to run
+      state_in: "received"
+      state_out: "processing"
+      # What context the agent receives
+      context_in:
+        from_db:
+          - table: items
+            as: "item.md"
+            must_have: ["id", "content"]
+        static:
+          - source: sample-personas      # → config/sample-personas/
+            dest: personas/
+      # What the agent produces
+      context_out:
+        artifacts:
+          - file: "analysis.md"
+            persist_to: supabase_storage
+      # Schema for structured output
+      output_schema: "schemas/processor-output.ts"
+    config:
+      model: "sonnet"
+      allowed_tools:
+        - "Read"
+        - "Write"
+        - "WebSearch"
+      permission_mode: "acceptEdits"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# FUNCTIONS
+# Deterministic operations. No judgment needed - follows explicit rules.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+functions:
+  - name: route-processing-result
+    description: "Routes processing results to appropriate next steps"
+    trigger:
+      type: event
+      event: item.processed
+    emits:
+      - sample/item.completed
+    pattern: routing
+    # Only list EXTERNAL integrations, not core infra
+    integrations: []
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# DATABASE
+# Schema and access control. Every table MUST have access policies.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+database:
+  # Define actors once, reference in table policies
+  actors:
+    - name: tenant
+      identifier: "current_setting('app.current_tenant')::uuid"
+      description: "The organization/tenant making the request"
+    - name: owner
+      identifier: "auth.uid()"
+      description: "The user who created/owns the record"
+
+  tables:
+    - name: items
+      columns:
+        - name: id
+          type: uuid
+          primary: true
+        - name: org_id
+          type: uuid
+          required: true
+        - name: content
+          type: text
+          required: true
+        - name: status
+          type: text
+          required: true
+        - name: created_by
+          type: uuid
+          required: true
+        - name: created_at
+          type: timestamptz
+          default: now()
+      access:
+        - actor: tenant
+          operations: [SELECT, INSERT, UPDATE]
+          condition: "org_id = :actor"
+          description: "Users can only access items in their org"
+        - actor: owner
+          operations: [DELETE]
+          condition: "created_by = :actor"
+          description: "Only creators can delete their items"
+
+    - name: processing_results
+      columns:
+        - name: id
+          type: uuid
+          primary: true
+        - name: item_id
+          type: uuid
+          required: true
+          references: items(id)
+        - name: result
+          type: jsonb
+          required: true
+        - name: processed_at
+          type: timestamptz
+          default: now()
+      access:
+        - actor: tenant
+          operations: [SELECT]
+          condition: "item_id IN (SELECT id FROM items WHERE org_id = :actor)"
+          description: "Users can view results for their org's items"

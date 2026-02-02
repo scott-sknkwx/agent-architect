@@ -1,0 +1,180 @@
+# Output Structure
+
+When Agent Architect generates a product, it creates a complete workspace in `workspace/{product-name}/`. This document describes the expected directory structure and what each file/directory contains.
+
+For a minimal working example, see `examples/sample-product/`.
+
+---
+
+## Directory Tree
+
+```
+{product-name}/
+├── README.md                 # Product overview and quick start
+├── manifest.yaml             # THE source of truth
+│
+├── .claude/                  # REQUIRED: Project-level Claude config
+│   ├── CLAUDE.md             # Instructions for generated codebase
+│   └── skills/               # Slash commands for the project
+│       └── ...
+│
+├── agents/                   # REQUIRED: CLAUDE.md files for each agent
+│   └── {agent-name}.md
+│
+├── schemas/                  # REQUIRED: Zod output schemas (one per agent)
+│   └── {agent-name}-output.ts
+│
+├── config/                   # REQUIRED: Static context files referenced by agents
+│   └── {source}/             # One directory per context_in.static source
+│
+├── templates/                # REQUIRED: Handlebars templates for context assembly
+│   └── {entity}-context.md.hbs
+│
+├── functions/                # REQUIRED: Function specs (not code)
+│   └── specs/
+│       └── {function-name}.spec.md
+│
+└── docs/                     # REQUIRED: Reference documentation
+    └── {topic}.md
+```
+
+---
+
+## Required Directories
+
+All directories are required. Agent Architect generates complete, documented systems.
+
+| Directory | Purpose |
+|-----------|---------|
+| `.claude/` | Project-level Claude instructions and skills for the generated codebase |
+| `agents/` | Per-agent CLAUDE.md instructions |
+| `schemas/` | Zod schemas for agent structured output |
+| `config/` | Static context files referenced by agents |
+| `templates/` | Handlebars templates that transform DB data into agent context |
+| `functions/specs/` | Function specification files (see `plans/function-capability/spec-format.md`) |
+| `docs/` | Reference documentation explaining how the system works |
+
+---
+
+## Config Directory Convention
+
+Each `context_in.static` reference in an agent's contract maps to a config subdirectory.
+
+**Pattern:**
+```yaml
+# In manifest.yaml
+agents:
+  - name: {agent-name}
+    contract:
+      context_in:
+        static:
+          - source: {concept}      # → config/{concept}/
+            description: "..."
+```
+
+**Mapping rule:** `source: {name}` → `config/{name}/`
+
+### Example: Kringle Lead Outreach
+
+```
+config/
+├── personas/{persona-id}/       # Per-persona configuration
+│   ├── filter_criteria.yaml     # ICP matching rules
+│   ├── pain_points.yaml         # Problems this persona has
+│   ├── messaging_angles.yaml    # How to approach them
+│   └── eex/                     # Email execution sequences
+│       ├── eex-1.md
+│       └── eex-2.md
+├── triage-rules/                # Lead qualification rules
+│   └── default.yaml
+└── escalation-actions/          # What to do on specific triggers
+    └── high-intent.yaml
+```
+
+---
+
+## Templates Directory
+
+Templates transform database records into readable context for agents.
+
+**Pattern:**
+```
+templates/
+└── {entity}-context.md.hbs      # Formats {entity} data for agents
+```
+
+### Example: Kringle Lead Outreach
+
+```
+templates/
+├── lead-context.md.hbs          # Lead record → agent-readable context
+│                                # {{name}}, {{company}}, {{enrichment.linkedin_headline}}
+├── persona-summary.md.hbs       # Persona config → messaging brief
+│                                # Pain points, angles, tone guidelines
+├── campaign-status.md.hbs       # Campaign state → what's sent, what's pending
+└── response-thread.md.hbs       # Email thread → context for triage agent
+```
+
+---
+
+## Docs Directory
+
+Reference documentation that travels with the generated project. Explains "why" and "how" for developers maintaining the system.
+
+**Pattern:**
+```
+docs/
+├── {entity}-lifecycle.md        # State machine and transitions
+├── {feature}-flow.md            # How a feature works end-to-end
+└── integration-notes.md         # External service details
+```
+
+### Example: Kringle Lead Outreach
+
+```
+docs/
+├── lead-lifecycle.md            # Lead states: new → enriched → qualified → ...
+├── approval-flow.md             # Bundle approval UX and fan-out logic
+├── email-sequence-logic.md      # EEX timing, response handling, timeouts
+└── integration-notes.md         # RB2B webhook format, Clay enrichment fields
+```
+
+---
+
+## What Agent Factory Generates
+
+When you run Agent Factory against a workspace:
+
+```bash
+cd workspace/{product-name}
+npx tsx ../../agent-factory/src/cli.ts init --manifest manifest.yaml
+```
+
+Agent Factory reads the workspace files and generates a deployable project in `projects/{product-name}/`:
+
+| From Workspace | To Project |
+|----------------|------------|
+| `manifest.yaml` | `inngest/events.ts`, `lib/database.ts`, migrations |
+| `agents/*.md` | `agents/{name}/CLAUDE.md` (merged with agent runner) |
+| `schemas/*.ts` | `agents/{name}/output-schema.ts` |
+| `config/` | `config/` (copied) |
+| `templates/` | `templates/` (copied) |
+| `functions/specs/` | `inngest/functions/specs/` (copied, stubs generated) |
+| `docs/` | `docs/` (copied) |
+
+---
+
+## Validation Checklist
+
+Before running Agent Factory, verify:
+
+- [ ] `README.md` exists with product overview
+- [ ] `manifest.yaml` exists and is valid YAML
+- [ ] `.claude/CLAUDE.md` exists with project instructions
+- [ ] Each agent in manifest has a corresponding `agents/{name}.md`
+- [ ] Each agent has an output schema at the path specified in `contract.output_schema`
+- [ ] Each `context_in.static.source` has a corresponding `config/{source}/` directory
+- [ ] Static config directories contain at least a README or definition file
+- [ ] `templates/` contains at least one `.hbs` template
+- [ ] `docs/` contains at least one documentation file
+- [ ] Function specs follow format in `plans/function-capability/spec-format.md`
