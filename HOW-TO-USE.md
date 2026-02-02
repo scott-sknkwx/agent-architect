@@ -262,7 +262,7 @@ agent-architect/
 ├── HOW-TO-USE.md          # This file
 ├── context/
 │   ├── agent-sdk-docs/    # SDK documentation reference
-│   ├── examples/          # Example manifests
+│   ├── manifest/          # Schema, reference, examples
 │   ├── patterns/          # Design patterns
 │   └── tech-docs/         # External service docs
 └── workspace/             # Staging area for generated products
