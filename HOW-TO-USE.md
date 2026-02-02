@@ -218,6 +218,7 @@ When `--merge-content` is specified, the CLI automatically routes content:
 | `config/**/*` | `config/` | Deep copy, skip existing |
 | `templates/**/*` | `templates/` | Deep copy, skip existing |
 | `schemas/*.ts` | `schemas/` | Copy, overwrite stubs |
+| `functions/specs/*.spec.md` | `inngest/functions/specs/` | Copy all (documentation) |
 
 ### Examples
 

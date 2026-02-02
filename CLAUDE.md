@@ -156,58 +156,18 @@ I take detailed notes. These answers become the CLAUDE.md content.
 
 ### Phase 3.5: Function Deep Dive
 
-For each non-agentic function in the manifest, I ask detailed questions to capture implementation context:
+For each non-agentic function, I use the `/function-spec-generation` skill to guide the interview. The skill covers:
 
-**Trigger & Timing:**
-- "What event triggers this function?" or "What schedule does it run on?"
-- "Where does this event come from?" (for context on upstream)
+- **Complexity classification** — Trivial, Simple, or Complex determines spec depth
+- **Trigger & Input** — Event or cron, payload shape
+- **Steps & Logic** — What happens, in order
+- **Database & Integrations** — Tables, APIs, error handling
+- **Configuration** — Thresholds, limits, constants
+- **Output** — Events emitted, return values
 
-**Data & Queries:**
-- "What database tables does this function read from?"
-- "What are the query conditions?" (status, time thresholds, etc.)
-- "What fields does it need from each table?"
-
-**Logic & Output:**
-- "What should happen for each item/event?"
-- "What events should be emitted and with what data?"
-- "What does the function return?"
-
-**Configuration:**
-- "Are there configurable values?" (thresholds, limits, timeouts)
-- "What are sensible defaults?"
-
-**Error Handling:**
-- "What errors are expected?" (empty results, not found, etc.)
-- "What errors should NOT be retried?" (validation failures, bad data)
-
-**Edge Cases:**
-- "What happens if [unusual scenario]?"
-- "Are there any known complications?"
-
-I capture answers in my notes and use them to generate specs in Phase 4.
-
-**I DO NOT write TypeScript code.** I capture the context as structured specs that the implementer (human or Claude in the generated project) will use.
+**I DO NOT write TypeScript code.** I capture the context as structured specs in `workspace/{product}/functions/specs/`.
 
 See `plans/function-capability/spec-format.md` for the full spec template.
-
-### Function Complexity Classification
-
-I classify each function before generating its spec:
-
-| Tier | Criteria | Spec Depth |
-|------|----------|------------|
-| **Trivial** | Pattern: webhook/simple, Steps: 1-2, No DB writes, No conditionals | Minimal |
-| **Simple** | Pattern: simple/cron, Steps: 3-5, May have DB ops, Linear flow | Standard |
-| **Complex** | Pattern: fan-in/routing, Multiple integrations, Conditional logic, Has open questions | Comprehensive |
-
-**Complexity signals:**
-
-- `fan-in` or `routing` pattern → Complex
-- `wait_for` in trigger → Complex
-- `open_questions` in manifest → Complex
-- Multiple integrations → Complex
-- 4+ steps → Simple or Complex
-- Database writes with conditional logic → Simple or Complex
 
 ### Phase 4: Generation
 
@@ -269,14 +229,35 @@ Once I have enough information, I generate:
 7. **Function specs** - Implementation context for non-agentic functions:
    - One `.spec.md` file per function in `workspace/{product}/functions/specs/`
    - Specs capture WHAT the function should do, not the TypeScript code
-   - Spec depth scales with function complexity (see below)
 
-   **Function Spec Generation:**
-   | Complexity | Spec Depth | Sections Required |
-   |------------|------------|-------------------|
-   | Trivial | Minimal | Purpose, Trigger, Input, Output |
-   | Simple | Standard | + Steps, DB Operations, Error Handling |
-   | Complex | Comprehensive | + Edge Cases, Examples, Open Questions |
+   **Generation Process:**
+   1. **Classify complexity** — Trivial, Simple, or Complex (use `/function-spec-generation` skill criteria)
+   2. **Select sections** based on complexity tier
+   3. **Populate sections** from interview notes + manifest data
+   4. **Mark status:**
+      - `Spec Complete` if all information captured
+      - `BLOCKED: Has Open Questions` if unresolved questions exist
+
+   **Complexity → Sections:**
+   | Complexity | Sections Required |
+   |------------|-------------------|
+   | Trivial | Purpose, Trigger, Input, Output |
+   | Simple | + Steps, DB Operations, Error Handling, Configuration |
+   | Complex | + Integration Calls, Edge Cases, Test Cases, Related Functions, Open Questions |
+
+   **Section Population Sources:**
+   | Section | Source |
+   |---------|--------|
+   | Header | Manifest (name, pattern) + Classification |
+   | Purpose | Interview (why does this exist?) |
+   | Trigger | Manifest (trigger field) |
+   | Input/Output | Manifest (trigger, emits) + Interview (payload shapes) |
+   | Implementation Steps | Interview (logic) + Pattern primitives |
+   | Database Operations | Interview (tables, fields, conditions) |
+   | Error Handling | Interview + Pattern defaults |
+   | Configuration | Interview (thresholds, limits) |
+   | Integration Calls | Manifest (integrations) + Interview (API details) |
+   | Open Questions | Interview (unresolved items) — BLOCKS status if present |
 
    See `plans/function-capability/spec-format.md` for the full template.
 
