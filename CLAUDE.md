@@ -80,10 +80,10 @@ Invoke with `/skill-name`. These encode specialized expertise and workflows:
 | Resource | Location |
 |----------|----------|
 | Agent Factory CLI | `../agent-factory/` |
-| **Agent SDK Documentation** | `./context/agent-sdk-docs/` — THE authoritative reference |
-| Manifest (schema, reference, examples) | `context/manifest/` |
-| Patterns | `context/patterns/` |
-| Tech docs | `./context/tech-docs/` |
+| **Agent SDK Documentation** | `.claude/context/agent-sdk-docs/` — THE authoritative reference |
+| Manifest (schema, reference, examples) | `.claude/context/manifest/` |
+| Patterns | `.claude/context/patterns/` |
+| Tech docs | `.claude/context/tech-docs/` |
 | Output | `./workspace/` |
 
 ### Architecture: The Universal Loop
@@ -160,7 +160,7 @@ contract.context_in     →     lib/workspace.ts hydration
 contract.output_schema  →     SDK outputFormat option
 ```
 
-See `context/patterns/agent-runtime-pattern.md` for the canonical agent runner implementation pattern.
+See `.claude/context/patterns/agent-runtime-pattern.md` for the canonical agent runner implementation pattern.
 
 ---
 
@@ -239,22 +239,36 @@ This is a DESIGN ARTIFACT and DEBUGGING TOOL, not documentation.
    - Mark automated functions with ⚙️
    - Show phase boundaries (Processing → In Flight → Completed)
 
-2. **Identify approval patterns**
+2. **Classify each step** with executor type and flow details:
+
+   | Field | Description |
+   |-------|-------------|
+   | **Executor** | 🤖 Agent / ⚙️ Function / 👤 Human |
+   | **Trigger** | Event name (e.g., `lead.qualified`) or cron |
+   | **Input Validation** | What must be true before starting |
+   | **Steps** | What happens during processing |
+   | **Output Validation** | What must be true after |
+   | **Persist** | What database changes occur |
+   | **Emit** | What event(s) fire next |
+
+   Reference: `context/patterns/flow-patterns.md` for classification heuristics and common patterns.
+
+3. **Identify approval patterns**
    - Where does a human NEED to approve?
    - Can approvals be batched? (Usually yes)
    - What creates approval fatigue?
 
-3. **Define autonomy boundaries**
+4. **Define autonomy boundaries**
    - What runs WITHOUT further human input after approval?
    - What events INTERRUPT autonomous flow?
    - What's the point of no return?
 
-4. **Distinguish content sources**
+5. **Distinguish content sources**
    - Agent-drafted per entity?
    - Templated/pre-built (inherited from persona, org, etc.)?
 
-5. **Present and iterate**
-   - Show the diagram
+6. **Present and iterate**
+   - Show the diagram AND flow table
    - Ask: "Does this match your mental model?"
    - EXPECT CORRECTIONS—first diagram is a conversation starter
    - Iterate 2-3 times until alignment
@@ -264,12 +278,20 @@ This is a DESIGN ARTIFACT and DEBUGGING TOOL, not documentation.
 PROCESSING              IN FLIGHT                 COMPLETED
 (human touchpoints)     (fully autonomous)        (terminal)
 ─────────────────       ─────────────────         ──────────
-Ingest                  Execute                   Success
-Enrich                  (only interrupts:         Failure
-Qualify                  responses, errors)       Archived
-Setup
+⚙️ Ingest               ⚙️ Execute                Success
+🤖 Enrich               (only interrupts:         Failure
+🤖 Qualify               responses, errors)       Archived
+⚙️ Setup
 👤 APPROVE BUNDLE ──────►
 ```
+
+**Example flow table:**
+| Step | Executor | Trigger | Persist | Emit |
+|------|----------|---------|---------|------|
+| Ingest | ⚙️ | webhook/rb2b | Insert lead | `lead.received` |
+| Enrich | 🤖 | `lead.received` | Update enrichment_data | `lead.enriched` |
+| Qualify | 🤖 | `lead.enriched` | Update status, score | `lead.qualified` / `lead.disqualified` |
+| Approve | 👤 | Dashboard action | Update statuses | `batch.approved` → fan-out |
 
 **Key insight:** The diagram IS the design. The manifest encodes the diagram.
 
@@ -284,6 +306,23 @@ For each agent, ask:
 3. **Output**: What fields matter?
 4. **Boundaries**: What should it explicitly NOT do?
 5. **Failure**: What happens when things go wrong?
+6. **Model Selection**: What's the right cost/quality tradeoff?
+
+   > "This agent [does X]. What's the right model for this task?"
+   > - **Fast & cheap** (haiku) — Simple extraction, classification, routing
+   > - **Balanced** (sonnet) — Most tasks, research, analysis, writing
+   > - **Maximum quality** (opus) — Complex reasoning, important decisions
+
+**Default Heuristics (propose, then confirm):**
+
+| Task Type | Default Model | Rationale |
+|-----------|---------------|-----------|
+| Data extraction | haiku | Structured input → structured output |
+| Classification/routing | haiku | Clear categories, fast decisions |
+| Research/analysis | sonnet | Needs synthesis, good enough quality |
+| Writing/creative | sonnet | Balances quality and cost |
+| Complex multi-step reasoning | opus | Highest quality for critical decisions |
+| High-stakes decisions | opus | Worth the cost for important outcomes |
 
 Take detailed notes—these become CLAUDE.md content.
 
@@ -370,6 +409,28 @@ Generate:
 
    See `plans/function-capability/spec-format.md` for full template.
 
+8. **Context copy** - Copy reference materials to generated project:
+   - Copy `.claude/context/` to `workspace/{product}/.claude/context/`
+   - All subdirectories: agent-sdk-docs, manifest, patterns, tech-docs
+   - This provides generated projects with complete reference documentation
+
+   **Generated CLAUDE.md Reference Section:**
+
+   Include this section in generated project's `.claude/CLAUDE.md`:
+
+   ```markdown
+   ## Reference Materials
+
+   This project includes reference documentation for extending and maintaining the system.
+
+   | Topic | Location |
+   |-------|----------|
+   | Agent SDK (tools, permissions, hooks) | `.claude/context/agent-sdk-docs/` |
+   | Design patterns (agent vs function, approvals) | `.claude/context/patterns/` |
+   | Integration documentation | `.claude/context/tech-docs/` |
+   | Manifest schema and examples | `.claude/context/manifest/` |
+   ```
+
 Write files to `workspace/` directory.
 
 ### Phase 5: Scaffold
@@ -408,10 +469,10 @@ User triggers for process phases:
 
 | Document | Purpose |
 |----------|---------|
-| `context/manifest/output-structure.md` | Expected output directory tree and file purposes |
-| `context/manifest/reference.md` | Contract definitions, access control, function integrations |
-| `context/manifest/contract-to-sdk-mapping.md` | How manifest fields map to SDK query() options |
-| `context/manifest/examples/sample-product/` | Canonical example workspace with annotated files |
+| `.claude/context/manifest/output-structure.md` | Expected output directory tree and file purposes |
+| `.claude/context/manifest/reference.md` | Contract definitions, access control, function integrations |
+| `.claude/context/manifest/contract-to-sdk-mapping.md` | How manifest fields map to SDK query() options |
+| `.claude/context/manifest/examples/sample-product/` | Canonical example workspace with annotated files |
 | `workspace/done/kringle/` | Complete reference implementation with runtime docs |
 | `plans/function-capability/README.md` | Function spec approach overview |
 | `plans/function-capability/spec-format.md` | Function spec template and sections |
@@ -420,14 +481,16 @@ User triggers for process phases:
 
 | Pattern | File | When to Use |
 |---------|------|-------------|
-| **Agent Boundaries** | `context/patterns/agent-boundaries.md` | Single Responsibility Test, common agent types, boundary rules |
-| **Agent Runtime** | `context/patterns/agent-runtime-pattern.md` | How agents execute: workspace hydration, SDK query(), cleanup |
-| **Bundle Approval** | `context/patterns/bundle-approval-pattern.md` | Multiple items need human review; avoid approval fatigue |
-| **CLAUDE.md Patterns** | `context/patterns/claude-md-patterns.md` | Template structure for agent instructions in Phase 4 |
-| **Content Sourcing** | `context/patterns/content-sourcing-pattern.md` | Distinguishing agent-drafted vs template-sourced content |
-| **Event Design** | `context/patterns/event-design-patterns.md` | Naming conventions (noun.verb), payload design, granularity |
-| **Executor Model** | `context/patterns/executor-model-pattern.md` | Understanding who executes each step (🤖/👤/⚙️) |
-| **Access Control** | `context/manifest/reference.md#access-control-pattern` | Database RLS policies, actor definitions |
+| **Agent Boundaries** | `.claude/context/patterns/agent-boundaries.md` | Single Responsibility Test, common agent types, boundary rules |
+| **Agent Runtime** | `.claude/context/patterns/agent-runtime-pattern.md` | How agents execute: workspace hydration, SDK query(), cleanup |
+| **Bundle Approval** | `.claude/context/patterns/bundle-approval-pattern.md` | Multiple items need human review; avoid approval fatigue |
+| **CLAUDE.md Patterns** | `.claude/context/patterns/claude-md-patterns.md` | Template structure for agent instructions in Phase 4 |
+| **Content Sourcing** | `.claude/context/patterns/content-sourcing-pattern.md` | Distinguishing agent-drafted vs template-sourced content |
+| **Database Patterns** | `.claude/context/patterns/database-patterns.md` | Column patterns, tenancy, state machines, relationships |
+| **Event Design** | `.claude/context/patterns/event-design-patterns.md` | Naming conventions (noun.verb), payload design, granularity |
+| **Executor Model** | `.claude/context/patterns/executor-model-pattern.md` | Understanding who executes each step (🤖/👤/⚙️) |
+| **Flow Patterns** | `.claude/context/patterns/flow-patterns.md` | Common flow patterns, executor classification heuristics |
+| **Access Control** | `.claude/context/manifest/reference.md#access-control-pattern` | Database RLS policies, actor definitions |
 
 **Quick Pattern Reference:**
 
@@ -449,7 +512,7 @@ User triggers for process phases:
 
 ### Technology Reference
 
-Consult `./context/tech-docs/` when designing integrations. Local docs provide design guidance; web search official docs for current API signatures.
+Consult `.claude/context/tech-docs/` when designing integrations. Local docs provide design guidance; web search official docs for current API signatures.
 
 | Tech | Purpose | Local Doc | Official Docs |
 |------|---------|-----------|---------------|

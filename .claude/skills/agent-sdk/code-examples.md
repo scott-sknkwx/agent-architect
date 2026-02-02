@@ -1,6 +1,6 @@
 # Agent SDK Code Examples
 
-Quick reference for common patterns. For full documentation, read the relevant guide in `context/agent-sdk-docs/docs/guides/`.
+Quick reference for common patterns. For full documentation, read the relevant guide in `.claude/context/agent-sdk-docs/docs/guides/`.
 
 ## Basic Agent
 

@@ -15,6 +15,11 @@ For a minimal working example, see `examples/sample-product/`.
 │
 ├── .claude/                  # REQUIRED: Project-level Claude config
 │   ├── CLAUDE.md             # Instructions for generated codebase
+│   ├── context/              # Reference documentation (copied from agent-architect)
+│   │   ├── agent-sdk-docs/   # Agent SDK documentation
+│   │   ├── manifest/         # Schema, reference, examples
+│   │   ├── patterns/         # Design patterns
+│   │   └── tech-docs/        # Integration documentation
 │   └── skills/               # Slash commands for the project
 │       └── ...
 │
@@ -46,7 +51,8 @@ All directories are required. Agent Architect generates complete, documented sys
 
 | Directory | Purpose |
 |-----------|---------|
-| `.claude/` | Project-level Claude instructions and skills for the generated codebase |
+| `.claude/` | Project-level Claude instructions, skills, and reference context |
+| `.claude/context/` | Reference documentation copied from agent-architect (SDK docs, patterns, tech docs) |
 | `agents/` | Per-agent CLAUDE.md instructions |
 | `schemas/` | Zod schemas for agent structured output |
 | `config/` | Static context files referenced by agents |
@@ -157,6 +163,7 @@ Agent Factory reads the workspace files and generates a deployable project in `p
 | `manifest.yaml` | `inngest/events.ts`, `lib/database.ts`, migrations |
 | `agents/*.md` | `agents/{name}/CLAUDE.md` (merged with agent runner) |
 | `schemas/*.ts` | `agents/{name}/output-schema.ts` |
+| `.claude/context/` | `.claude/context/` (copied - reference documentation) |
 | `config/` | `config/` (copied) |
 | `templates/` | `templates/` (copied) |
 | `functions/specs/` | `inngest/functions/specs/` (copied, stubs generated) |
@@ -272,6 +279,7 @@ Before running Agent Factory, verify:
 - [ ] `README.md` exists with product overview
 - [ ] `manifest.yaml` exists and is valid YAML
 - [ ] `.claude/CLAUDE.md` exists with project instructions
+- [ ] `.claude/context/` exists with reference documentation (agent-sdk-docs, manifest, patterns, tech-docs)
 - [ ] Each agent in manifest has a corresponding `agents/{name}.md`
 - [ ] Each agent has an output schema at the path specified in `contract.output_schema`
 - [ ] Each `context_in.static.source` has a corresponding `config/{source}/` directory

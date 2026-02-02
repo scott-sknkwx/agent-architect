@@ -260,11 +260,13 @@ npx tsx ~/agent-factory/src/cli.ts init \
 agent-architect/
 ├── CLAUDE.md              # Agent Architect instructions
 ├── HOW-TO-USE.md          # This file
-├── context/
-│   ├── agent-sdk-docs/    # SDK documentation reference
-│   ├── manifest/          # Schema, reference, examples
-│   ├── patterns/          # Design patterns
-│   └── tech-docs/         # External service docs
+├── .claude/
+│   ├── context/
+│   │   ├── agent-sdk-docs/    # SDK documentation reference
+│   │   ├── manifest/          # Schema, reference, examples
+│   │   ├── patterns/          # Design patterns
+│   │   └── tech-docs/         # External service docs
+│   └── skills/                # Claude Code skills
 └── workspace/             # Staging area for generated products
     ├── {product-name}/    # Temporary, archived by --archive-staging
     └── done/              # Archived staging directories
