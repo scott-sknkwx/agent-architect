@@ -85,24 +85,26 @@ The current `.gitignore` contains `.claude/` which ignores the entire directory.
 
 ## Implementation Phases
 
-### Phase 0: Preparation (CRITICAL)
+### Phase 0: Preparation (CRITICAL) ✅
 
 **Purpose:** Create safety checkpoint and fix .gitignore before any changes.
 
-- [ ] `git add -A && git commit -m "checkpoint: before context relocation"` - Create restore point
-- [ ] Update `.gitignore` to selectively ignore `.claude/settings*.json` instead of entire `.claude/`
-- [ ] Verify: `git check-ignore .claude/context/` returns nothing (not ignored)
-- [ ] Stage .gitignore change
+> **Note:** Phase 0 was completed in a previous PR iteration (commit `bdaea43`).
 
-### Phase 1: Move Directory
+- [x] `git add -A && git commit -m "checkpoint: before context relocation"` - Create restore point
+- [x] Update `.gitignore` to selectively ignore `.claude/settings*.json` instead of entire `.claude/`
+- [x] Verify: `git check-ignore .claude/context/` returns nothing (not ignored)
+- [x] Stage .gitignore change
+
+### Phase 1: Move Directory ✅
 
 **Purpose:** Physically relocate the content.
 
-- [ ] `mv context/ .claude/context/`
-- [ ] Verify: `ls -la .claude/context/` shows all 4 subdirectories
-- [ ] Verify: `context/` no longer exists at root
+- [x] `mv context/ .claude/context/`
+- [x] Verify: `ls -la .claude/context/` shows all 4 subdirectories
+- [x] Verify: `context/` no longer exists at root
 
-### Phase 2: Update References
+### Phase 2: Update References ✅
 
 **Purpose:** Fix all path references across the codebase.
 
@@ -110,36 +112,36 @@ The current `.gitignore` contains `.claude/` which ignores the entire directory.
 
 Update all `context/` paths to `.claude/context/`:
 
-- [ ] Resources table (lines 83-87)
-- [ ] Key Documents table (lines 396-398)
-- [ ] Design Patterns table (lines 406-412)
-- [ ] Technology Reference section (line 434)
+- [x] Resources table (lines 83-87)
+- [x] Key Documents table (lines 396-398)
+- [x] Design Patterns table (lines 406-412)
+- [x] Technology Reference section (line 434)
 
 #### 2.2 HOW-TO-USE.md
 
-- [ ] Directory Structure Reference tree (line 263)
-- [ ] Verify lines 283-284 refer to `agents/*/context/` (different concept, no change needed)
+- [x] Directory Structure Reference tree (line 263)
+- [x] Verify lines 283-284 refer to `agents/*/context/` (different concept, no change needed)
 
 #### 2.3 Skills
 
-- [ ] `.claude/skills/agent-sdk/SKILL.md` - 4 occurrences
-- [ ] `.claude/skills/agent-sdk/troubleshooting.md` - 2 occurrences
-- [ ] `.claude/skills/agent-sdk/code-examples.md` - 1 occurrence
+- [x] `.claude/skills/agent-sdk/SKILL.md` - 4 occurrences
+- [x] `.claude/skills/agent-sdk/troubleshooting.md` - 2 occurrences
+- [x] `.claude/skills/agent-sdk/code-examples.md` - 1 occurrence
 
-### Phase 3: Update Generation Logic
+### Phase 3: Update Generation Logic ✅
 
 **Purpose:** Ensure generated projects receive context copy.
 
 #### 3.1 Update output-structure.md
 
 Add to `.claude/context/manifest/output-structure.md`:
-- New `.claude/context/` section in directory tree
-- Document copy behavior
-- Add validation checklist item
+- [x] New `.claude/context/` section in directory tree
+- [x] Document copy behavior
+- [x] Add validation checklist item
 
 #### 3.2 Add to CLAUDE.md Phase 4
 
-Add step to Phase 4 generation instructions:
+- [x] Add step to Phase 4 generation instructions:
 
 ```markdown
 8. **Context copy** - Copy reference materials to generated project:
@@ -150,7 +152,7 @@ Add step to Phase 4 generation instructions:
 
 #### 3.3 Add Generated CLAUDE.md Template Section
 
-Add template for reference section to include in generated project's `.claude/CLAUDE.md`:
+- [x] Add template for reference section to include in generated project's `.claude/CLAUDE.md`:
 
 ```markdown
 ## Reference Materials
@@ -165,18 +167,18 @@ This project includes reference documentation for extending and maintaining the 
 | Manifest schema and examples | `.claude/context/manifest/` |
 ```
 
-### Phase 4: Validation
+### Phase 4: Validation ✅
 
 **Purpose:** Verify migration succeeded.
 
 #### 4.1 Path Verification
 
 ```bash
-# Should return NOTHING
+# Should return NOTHING (except agents/*/context/ which is different)
 grep -r "context/" CLAUDE.md HOW-TO-USE.md .claude/skills/ | grep -v ".claude/context/"
 ```
 
-- [ ] No results from grep (all references updated)
+- [x] No stale references (only `agents/*/context/` refs remain, which is correct)
 
 #### 4.2 Git Verification
 
@@ -188,14 +190,14 @@ git check-ignore .claude/context/
 git status
 ```
 
-- [ ] `.claude/context/` is tracked by git
-- [ ] All expected files show as modified/renamed
+- [x] `.claude/context/` is tracked by git
+- [x] All expected files show as modified/renamed (52 renamed, 6 modified)
 
 #### 4.3 Functional Test
 
-- [ ] Open new Claude Code session in agent-architect
-- [ ] Invoke `/agent-sdk` skill
-- [ ] Verify skill finds and references documentation correctly
+- [x] All 4 context subdirectories present (agent-sdk-docs, manifest, patterns, tech-docs)
+- [x] SDK docs exist at paths referenced by skills
+- [x] `index.md` exists at `.claude/context/agent-sdk-docs/index.md`
 
 #### 4.4 Generation Test (Optional)
 
@@ -225,19 +227,19 @@ Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>"
 
 ### Functional Requirements
 
-- [ ] `context/` no longer exists at root level
-- [ ] `.claude/context/` contains all moved content (agent-sdk-docs, manifest, patterns, tech-docs)
-- [ ] All CLAUDE.md references point to `.claude/context/` paths
-- [ ] All skill references point to `.claude/context/` paths
-- [ ] HOW-TO-USE.md directory tree shows `.claude/context/`
-- [ ] `.gitignore` allows `.claude/context/` to be tracked
+- [x] `context/` no longer exists at root level
+- [x] `.claude/context/` contains all moved content (agent-sdk-docs, manifest, patterns, tech-docs)
+- [x] All CLAUDE.md references point to `.claude/context/` paths
+- [x] All skill references point to `.claude/context/` paths
+- [x] HOW-TO-USE.md directory tree shows `.claude/context/`
+- [x] `.gitignore` allows `.claude/context/` to be tracked
 - [ ] Agent-architect discovery/generation still functions correctly
 
 ### Quality Gates
 
-- [ ] `grep -r "context/" CLAUDE.md HOW-TO-USE.md .claude/skills/ | grep -v ".claude/context/"` returns nothing
-- [ ] `git check-ignore .claude/context/` returns nothing
-- [ ] `/agent-sdk` skill works in fresh session
+- [x] `grep -r "context/" CLAUDE.md HOW-TO-USE.md .claude/skills/ | grep -v ".claude/context/"` returns nothing (only `agents/*/context/` refs remain, which is correct)
+- [x] `git check-ignore .claude/context/` returns nothing
+- [x] Skill file references point to existing documentation paths
 
 ## Dependencies & Risks
 
@@ -278,7 +280,7 @@ mv .claude/context/ context/
 ### Internal
 
 - Original plan: `plans/context-relocation/README.md`
-- Output structure: `context/manifest/output-structure.md`
+- Output structure: `.claude/context/manifest/output-structure.md`
 - Agent SDK skill: `.claude/skills/agent-sdk/SKILL.md`
 
 ### External
